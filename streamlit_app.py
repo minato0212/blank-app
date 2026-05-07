@@ -1,539 +1,612 @@
 import streamlit as st
 import random
-import json
+from streamlit.components.v1 import html as st_html
 
-st.set_page_config(page_title="Number Blast", page_icon="🔢", layout="centered")
+st.set_page_config(page_title="Number Blast 15", page_icon="🔢", layout="centered")
 
 # ============================================================
 # 定数
 # ============================================================
 GRID_SIZE = 8
-COLORS = {
-    1: "#FF6B6B", 2: "#FF8E53", 3: "#FFC300",
-    4: "#6BCB77", 5: "#4D96FF", 6: "#C77DFF",
-    7: "#FF6EC7", 8: "#00C9A7", 9: "#F9844A",
-}
+TARGET = 15
+NUM_RANGE = list(range(1, 10))  # 1〜9
 
-# ============================================================
-# ブロックピース定義（形状リスト）
-# ============================================================
-PIECES = [
-    [[1]],                              # 1×1
-    [[1, 1]],                           # 1×2 横
-    [[1], [1]],                         # 2×1 縦
-    [[1, 1, 1]],                        # 1×3 横
-    [[1], [1], [1]],                    # 3×1 縦
-    [[1, 1], [1, 1]],                   # 2×2
-    [[1, 1, 0], [0, 1, 1]],            # S字
-    [[0, 1, 1], [1, 1, 0]],            # Z字
-    [[1, 0], [1, 1]],                  # L字小
-    [[1, 1], [1, 0]],                  # J字小
-]
+COLORS = {
+    1: "#ef4444", 2: "#f97316", 3: "#eab308",
+    4: "#22c55e", 5: "#06b6d4", 6: "#3b82f6",
+    7: "#8b5cf6", 8: "#ec4899", 9: "#14b8a6",
+}
 
 # ============================================================
 # セッション初期化
 # ============================================================
-def init_state():
-    if "grid" not in st.session_state:
-        st.session_state.grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
-    if "score" not in st.session_state:
-        st.session_state.score = 0
-    if "pieces" not in st.session_state:
-        st.session_state.pieces = generate_pieces()
-    if "selected_piece" not in st.session_state:
-        st.session_state.selected_piece = 0
-    if "message" not in st.session_state:
-        st.session_state.message = ""
-    if "game_over" not in st.session_state:
-        st.session_state.game_over = False
-    if "cleared_lines" not in st.session_state:
-        st.session_state.cleared_lines = []
-
-def generate_pieces():
-    pieces = []
-    for _ in range(3):
-        shape = random.choice(PIECES)
-        number = random.randint(1, 9)
-        pieces.append({"shape": shape, "number": number})
-    return pieces
+def init():
+    if "grid"        not in st.session_state: st.session_state.grid = [[0]*GRID_SIZE for _ in range(GRID_SIZE)]
+    if "score"       not in st.session_state: st.session_state.score = 0
+    if "sel_num"     not in st.session_state: st.session_state.sel_num = 1
+    if "msg"         not in st.session_state: st.session_state.msg = "数字を選んでグリッドをクリック！"
+    if "msg_type"    not in st.session_state: st.session_state.msg_type = "info"
+    if "last_cleared" not in st.session_state: st.session_state.last_cleared = []
+    if "game_over"   not in st.session_state: st.session_state.game_over = False
+    if "moves"       not in st.session_state: st.session_state.moves = 0
 
 # ============================================================
 # ゲームロジック
 # ============================================================
-def can_place(grid, shape, row, col):
-    for r, rowdata in enumerate(shape):
-        for c, cell in enumerate(rowdata):
-            if cell:
-                nr, nc = row + r, col + c
-                if nr < 0 or nr >= GRID_SIZE or nc < 0 or nc >= GRID_SIZE:
-                    return False
-                if grid[nr][nc] != 0:
-                    return False
-    return True
-
-def place_piece(grid, shape, number, row, col):
-    new_grid = [row_[:] for row_ in grid]
-    for r, rowdata in enumerate(shape):
-        for c, cell in enumerate(rowdata):
-            if cell:
-                new_grid[row + r][col + c] = number
-    return new_grid
-
-def check_and_clear(grid):
-    """縦か横で合計10になるセルを消す"""
+def find_clears(grid):
+    """縦横で連続合計=TARGETのセルを返す"""
     to_clear = set()
-
-    # 横チェック
+    # 横
     for r in range(GRID_SIZE):
-        vals = [grid[r][c] for c in range(GRID_SIZE) if grid[r][c] != 0]
-        # 連続する部分列で合計10を探す
-        row_cells = [(r, c) for c in range(GRID_SIZE) if grid[r][c] != 0]
-        for start in range(len(row_cells)):
-            total = 0
-            group = []
-            for idx in range(start, len(row_cells)):
-                _, c0 = row_cells[idx]
-                # 連続しているか（列が隣接）
-                if group and c0 != group[-1][1] + 1:
+        cells = [(r, c) for c in range(GRID_SIZE) if grid[r][c] != 0]
+        for s in range(len(cells)):
+            total, group = 0, []
+            for i in range(s, len(cells)):
+                rr, cc = cells[i]
+                if group and cc != group[-1][1] + 1:
                     break
-                total += grid[row_cells[idx][0]][c0]
-                group.append(row_cells[idx])
-                if total == 10:
-                    for cell in group:
-                        to_clear.add(cell)
-                elif total > 10:
+                total += grid[rr][cc]
+                group.append((rr, cc))
+                if total == TARGET:
+                    to_clear.update(group)
+                elif total > TARGET:
                     break
-
-    # 縦チェック
+    # 縦
     for c in range(GRID_SIZE):
-        col_cells = [(r, c) for r in range(GRID_SIZE) if grid[r][c] != 0]
-        for start in range(len(col_cells)):
-            total = 0
-            group = []
-            for idx in range(start, len(col_cells)):
-                r0, _ = col_cells[idx]
-                if group and r0 != group[-1][0] + 1:
+        cells = [(r, c) for r in range(GRID_SIZE) if grid[r][c] != 0]
+        for s in range(len(cells)):
+            total, group = 0, []
+            for i in range(s, len(cells)):
+                rr, cc = cells[i]
+                if group and rr != group[-1][0] + 1:
                     break
-                total += grid[r0][col_cells[idx][1]]
-                group.append(col_cells[idx])
-                if total == 10:
-                    for cell in group:
-                        to_clear.add(cell)
-                elif total > 10:
+                total += grid[rr][cc]
+                group.append((rr, cc))
+                if total == TARGET:
+                    to_clear.update(group)
+                elif total > TARGET:
                     break
-
     return to_clear
 
-def apply_clear(grid, to_clear):
-    new_grid = [row[:] for row in grid]
-    for r, c in to_clear:
-        new_grid[r][c] = 0
-    return new_grid
-
-def check_game_over(grid, pieces):
-    for pi, p in enumerate(pieces):
-        if p is None:
-            continue
-        shape = p["shape"]
-        for r in range(GRID_SIZE):
-            for c in range(GRID_SIZE):
-                if can_place(grid, shape, r, c):
-                    return False
-    return True
-
-# ============================================================
-# CSS
-# ============================================================
-def inject_css():
-    st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Noto+Sans+JP:wght@400;700&display=swap');
-
-    html, body, [class*="css"] {
-        font-family: 'Noto Sans JP', sans-serif;
-        background-color: #0d0d1a;
-        color: #e0e0ff;
-    }
-    .main { background: #0d0d1a; }
-
-    h1.title {
-        font-family: 'Orbitron', monospace;
-        font-size: 2.4rem;
-        font-weight: 900;
-        letter-spacing: 0.15em;
-        background: linear-gradient(90deg, #FF6B6B, #FFC300, #6BCB77, #4D96FF);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        text-align: center;
-        margin-bottom: 0;
-    }
-
-    .score-area {
-        display: flex;
-        justify-content: center;
-        gap: 2rem;
-        margin: 0.5rem 0 1rem 0;
-    }
-
-    .score-box {
-        background: rgba(255,255,255,0.06);
-        border: 1px solid rgba(255,255,255,0.12);
-        border-radius: 12px;
-        padding: 0.5rem 1.5rem;
-        text-align: center;
-        min-width: 100px;
-    }
-
-    .score-label { font-size: 0.7rem; color: #8888aa; letter-spacing:0.1em; text-transform: uppercase; }
-    .score-value { font-family: 'Orbitron', monospace; font-size: 2rem; font-weight: 900; color: #FFC300; }
-
-    .rule-hint {
-        text-align: center;
-        color: #8888aa;
-        font-size: 0.82rem;
-        margin-bottom: 0.8rem;
-    }
-
-    .grid-table {
-        border-collapse: separate;
-        border-spacing: 3px;
-        margin: 0 auto;
-    }
-
-    .grid-cell {
-        width: 52px;
-        height: 52px;
-        border-radius: 8px;
-        text-align: center;
-        vertical-align: middle;
-        font-family: 'Orbitron', monospace;
-        font-size: 1.2rem;
-        font-weight: 900;
-        cursor: pointer;
-        transition: transform 0.1s, filter 0.1s;
-        border: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .grid-cell.empty {
-        background: rgba(255,255,255,0.04);
-        color: transparent;
-    }
-
-    .grid-cell.filled {
-        box-shadow: 0 0 8px rgba(255,255,255,0.15) inset, 0 2px 6px rgba(0,0,0,0.4);
-        color: rgba(255,255,255,0.9);
-        text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-    }
-
-    .grid-cell.cleared {
-        animation: pop 0.4s ease forwards;
-    }
-
-    @keyframes pop {
-        0%   { transform: scale(1.3); filter: brightness(2); }
-        100% { transform: scale(0); opacity: 0; }
-    }
-
-    .pieces-area {
-        display: flex;
-        justify-content: center;
-        gap: 1.5rem;
-        margin: 1.2rem 0;
-        flex-wrap: wrap;
-    }
-
-    .piece-card {
-        background: rgba(255,255,255,0.05);
-        border: 2px solid rgba(255,255,255,0.08);
-        border-radius: 14px;
-        padding: 0.8rem 1rem;
-        cursor: pointer;
-        transition: border-color 0.2s, background 0.2s;
-        min-width: 90px;
-        text-align: center;
-    }
-
-    .piece-card.selected {
-        border-color: #FFC300;
-        background: rgba(255,195,0,0.10);
-        box-shadow: 0 0 16px rgba(255,195,0,0.25);
-    }
-
-    .piece-label {
-        font-size: 0.7rem;
-        color: #8888aa;
-        margin-bottom: 0.3rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-    }
-
-    .piece-mini-table {
-        border-collapse: separate;
-        border-spacing: 2px;
-        margin: 0 auto;
-    }
-
-    .piece-mini-cell {
-        width: 22px;
-        height: 22px;
-        border-radius: 4px;
-        font-family: 'Orbitron', monospace;
-        font-size: 0.6rem;
-        font-weight: 900;
-        text-align: center;
-        vertical-align: middle;
-        color: rgba(255,255,255,0.9);
-    }
-
-    .piece-mini-empty {
-        width: 22px;
-        height: 22px;
-        border-radius: 4px;
-        background: transparent;
-    }
-
-    .place-btn { margin-top: 0.4rem; }
-
-    .msg-box {
-        text-align: center;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #6BCB77;
-        min-height: 1.8rem;
-        margin: 0.3rem 0;
-    }
-
-    .msg-box.error { color: #FF6B6B; }
-
-    .gameover-overlay {
-        background: rgba(13,13,26,0.95);
-        border: 2px solid #FF6B6B;
-        border-radius: 20px;
-        padding: 2rem;
-        text-align: center;
-        margin: 1rem auto;
-        max-width: 400px;
-    }
-
-    .gameover-title {
-        font-family: 'Orbitron', monospace;
-        font-size: 2rem;
-        color: #FF6B6B;
-        font-weight: 900;
-        margin-bottom: 0.5rem;
-    }
-
-    .stButton > button {
-        font-family: 'Orbitron', monospace !important;
-        font-weight: 700 !important;
-        border-radius: 10px !important;
-        background: rgba(255,255,255,0.06) !important;
-        color: #e0e0ff !important;
-        border: 1px solid rgba(255,255,255,0.12) !important;
-        transition: all 0.2s !important;
-    }
-    .stButton > button:hover {
-        background: rgba(255,195,0,0.15) !important;
-        border-color: #FFC300 !important;
-        color: #FFC300 !important;
-    }
-
-    </style>
-    """, unsafe_allow_html=True)
-
-# ============================================================
-# グリッドをHTMLで描画
-# ============================================================
-def render_grid(grid):
-    html = "<table class='grid-table'>"
-    for r in range(GRID_SIZE):
-        html += "<tr>"
-        for c in range(GRID_SIZE):
-            val = grid[r][c]
-            if val == 0:
-                html += f"<td class='grid-cell empty' data-r='{r}' data-c='{c}'>&nbsp;</td>"
-            else:
-                color = COLORS.get(val, "#aaaaaa")
-                html += (
-                    f"<td class='grid-cell filled' "
-                    f"style='background:{color};' "
-                    f"data-r='{r}' data-c='{c}'>{val}</td>"
-                )
-        html += "</tr>"
-    html += "</table>"
-    st.markdown(html, unsafe_allow_html=True)
-
-# ============================================================
-# ピースをHTMLで描画
-# ============================================================
-def render_piece_card(piece, index, selected):
-    shape = piece["shape"]
-    num = piece["number"]
-    color = COLORS.get(num, "#aaaaaa")
-    sel_class = "selected" if selected == index else ""
-    label = f"ピース {index + 1}"
-
-    rows_html = ""
-    for row in shape:
-        rows_html += "<tr>"
-        for cell in row:
-            if cell:
-                rows_html += f"<td class='piece-mini-cell' style='background:{color};'>{num}</td>"
-            else:
-                rows_html += "<td class='piece-mini-empty'></td>"
-        rows_html += "</tr>"
-
-    html = f"""
-    <div class='piece-card {sel_class}' id='piece-{index}'>
-        <div class='piece-label'>{label}</div>
-        <table class='piece-mini-table'>{rows_html}</table>
-    </div>
-    """
-    return html
-
-# ============================================================
-# メイン
-# ============================================================
-init_state()
-inject_css()
-
-st.markdown("<h1 class='title'>NUMBER BLAST</h1>", unsafe_allow_html=True)
-
-# スコア
-total_games = st.session_state.score
-st.markdown(f"""
-<div class='score-area'>
-    <div class='score-box'>
-        <div class='score-label'>スコア</div>
-        <div class='score-value'>{st.session_state.score}</div>
-    </div>
-</div>
-<p class='rule-hint'>縦か横に並んだ数字の合計が <b>10</b> になったら消える！</p>
-""", unsafe_allow_html=True)
-
-# ゲームオーバー
-if st.session_state.game_over:
-    st.markdown(f"""
-    <div class='gameover-overlay'>
-        <div class='gameover-title'>GAME OVER</div>
-        <p style='font-size:1.3rem; color:#FFC300;'>スコア: {st.session_state.score}</p>
-        <p style='color:#8888aa;'>置けるピースがなくなりました</p>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("🔄 もう一度プレイ", use_container_width=True):
-        for key in ["grid", "score", "pieces", "selected_piece", "message", "game_over", "cleared_lines"]:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.rerun()
-    st.stop()
-
-# グリッド描画
-render_grid(st.session_state.grid)
-
-# メッセージ
-msg_class = "error" if "置けません" in st.session_state.message else ""
-st.markdown(f"<div class='msg-box {msg_class}'>{st.session_state.message or '&nbsp;'}</div>", unsafe_allow_html=True)
-
-# ピース選択エリア
-st.markdown("<div style='text-align:center;color:#8888aa;font-size:0.85rem;margin-bottom:0.3rem;'>▼ ピースを選んで置く場所を指定</div>", unsafe_allow_html=True)
-
-pieces_html = "<div class='pieces-area'>"
-for i, p in enumerate(st.session_state.pieces):
-    if p is not None:
-        pieces_html += render_piece_card(p, i, st.session_state.selected_piece)
+def place_and_clear(r, c, num):
+    grid = [row[:] for row in st.session_state.grid]
+    if grid[r][c] != 0:
+        st.session_state.msg = "❌ すでに埋まっています！"
+        st.session_state.msg_type = "err"
+        return
+    grid[r][c] = num
+    to_clear = find_clears(grid)
+    cleared = len(to_clear)
+    for cr, cc in to_clear:
+        grid[cr][cc] = 0
+    st.session_state.grid = grid
+    st.session_state.moves += 1
+    st.session_state.last_cleared = list(to_clear)
+    if cleared > 0:
+        pts = cleared * TARGET
+        st.session_state.score += pts
+        st.session_state.msg = f"🎉 {cleared}マス消去！ +{pts}点"
+        st.session_state.msg_type = "good"
     else:
-        pieces_html += f"<div class='piece-card' style='opacity:0.2;min-width:90px;'><div class='piece-label'>使用済</div></div>"
-pieces_html += "</div>"
-st.markdown(pieces_html, unsafe_allow_html=True)
+        st.session_state.msg = f"✔️ [{r+1},{c+1}] に {num} を配置"
+        st.session_state.msg_type = "info"
 
-# ピース選択ボタン
-col1, col2, col3 = st.columns(3)
-for i, (col, label) in enumerate(zip([col1, col2, col3], ["ピース1", "ピース2", "ピース3"])):
-    with col:
-        if st.session_state.pieces[i] is not None:
-            btn_style = "🟡 " if st.session_state.selected_piece == i else ""
-            if st.button(f"{btn_style}{label}を選択", key=f"sel_{i}", use_container_width=True):
-                st.session_state.selected_piece = i
-                st.session_state.message = f"ピース{i+1}を選択中。行・列を指定して置こう！"
-                st.rerun()
-
-st.markdown("---")
-
-# 置く場所の指定
-st.markdown("#### 📍 置く場所を指定")
-
-pc1, pc2, pc3 = st.columns([2, 2, 1])
-with pc1:
-    row_input = st.number_input("行 (1〜8)", min_value=1, max_value=GRID_SIZE, value=1, step=1) - 1
-with pc2:
-    col_input = st.number_input("列 (1〜8)", min_value=1, max_value=GRID_SIZE, value=1, step=1) - 1
-with pc3:
-    st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-    place_btn = st.button("✅ 置く", use_container_width=True)
-
-if place_btn:
-    sel = st.session_state.selected_piece
-    piece = st.session_state.pieces[sel]
-    if piece is None:
-        st.session_state.message = "⚠️ そのピースはもう使用済みです！"
-    else:
-        shape = piece["shape"]
-        number = piece["number"]
-        grid = st.session_state.grid
-        if can_place(grid, shape, row_input, col_input):
-            # 配置
-            new_grid = place_piece(grid, shape, number, row_input, col_input)
-            # 消去チェック
-            to_clear = check_and_clear(new_grid)
-            cleared_count = len(to_clear)
-            new_grid = apply_clear(new_grid, to_clear)
-            st.session_state.grid = new_grid
-            st.session_state.score += cleared_count * 10
-            st.session_state.pieces[sel] = None
-
-            if cleared_count > 0:
-                st.session_state.message = f"🎉 {cleared_count}マス消去！ +{cleared_count * 10}点"
-            else:
-                st.session_state.message = f"✔️ ピース{sel+1}を ({row_input+1}, {col_input+1}) に配置！"
-
-            # 全ピース使い切ったら補充
-            if all(p is None for p in st.session_state.pieces):
-                st.session_state.pieces = generate_pieces()
-                st.session_state.message += " 　新しいピースが来た！"
-
-            # 次の選択
-            for i, p in enumerate(st.session_state.pieces):
-                if p is not None:
-                    st.session_state.selected_piece = i
-                    break
-
-            # ゲームオーバー判定
-            if check_game_over(st.session_state.grid, st.session_state.pieces):
-                st.session_state.game_over = True
-
-            st.rerun()
-        else:
-            st.session_state.message = f"❌ そこには置けません！はみ出るか重なっています。"
-            st.rerun()
-
-# リセット
-st.markdown("<br>", unsafe_allow_html=True)
-if st.button("🔄 ゲームリセット", use_container_width=False):
-    for key in ["grid", "score", "pieces", "selected_piece", "message", "game_over", "cleared_lines"]:
-        if key in st.session_state:
-            del st.session_state[key]
+# ============================================================
+# URLパラメータ受信
+# ============================================================
+init()
+params = st.query_params
+if "r" in params and "c" in params and "n" in params:
+    try:
+        pr = int(params["r"])
+        pc = int(params["c"])
+        pn = int(params["n"])
+        if 0 <= pr < GRID_SIZE and 0 <= pc < GRID_SIZE and pn in NUM_RANGE:
+            place_and_clear(pr, pc, pn)
+    except Exception:
+        pass
+    st.query_params.clear()
     st.rerun()
 
-# 操作ガイド
+if "selnum" in params:
+    try:
+        sn = int(params["selnum"])
+        if sn in NUM_RANGE:
+            st.session_state.sel_num = sn
+            st.session_state.msg = f"数字 {sn} を選択中 — グリッドをクリック！"
+            st.session_state.msg_type = "info"
+    except Exception:
+        pass
+    st.query_params.clear()
+    st.rerun()
+
+# ============================================================
+# CSS (Streamlit側)
+# ============================================================
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=M+PLUS+Rounded+1c:wght@700;900&display=swap');
+html, body, [class*="css"] {
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    background: #0a0f1e;
+    color: #e2e8f0;
+}
+.block-container { padding-top: 0.8rem !important; }
+.stButton > button {
+    font-family: 'M PLUS Rounded 1c', sans-serif !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    background: #1e293b !important;
+    color: #94a3b8 !important;
+    border: 1px solid #334155 !important;
+    font-size: 0.8rem !important;
+}
+.stButton > button:hover {
+    border-color: #f59e0b !important;
+    color: #f59e0b !important;
+    background: #1e293b !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# インタラクティブHTML
+# ============================================================
+grid = st.session_state.grid
+sel  = st.session_state.sel_num
+score = st.session_state.score
+msg  = st.session_state.msg
+msg_type = st.session_state.msg_type
+moves = st.session_state.moves
+
+# グリッドJSON
+grid_js = str(grid).replace("True","true").replace("False","false").replace("'",'"')
+
+# 色マップJS
+colors_js = "{" + ",".join(f"{k}:'{v}'" for k,v in COLORS.items()) + "}"
+
+msg_color = {"good": "#4ade80", "err": "#f87171", "info": "#94a3b8"}[msg_type]
+
+html_code = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=M+PLUS+Rounded+1c:wght@700;900&display=swap');
+*{{ box-sizing:border-box; margin:0; padding:0; }}
+body {{
+  background: transparent;
+  font-family: 'M PLUS Rounded 1c', sans-serif;
+  color: #e2e8f0;
+  padding: 6px 4px 10px;
+}}
+
+/* ---- タイトル ---- */
+.title {{
+  font-family: 'Orbitron', monospace;
+  font-size: 1.9rem;
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: 0.12em;
+  background: linear-gradient(90deg,#f97316,#eab308,#22c55e,#06b6d4,#8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
+}}
+.subtitle {{
+  text-align: center;
+  font-size: 0.75rem;
+  color: #475569;
+  margin-bottom: 10px;
+  letter-spacing: 0.05em;
+}}
+
+/* ---- スコア ---- */
+.hud {{
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}}
+.hud-pill {{
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 40px;
+  padding: 6px 22px;
+  text-align: center;
+}}
+.hud-pill .lbl {{ font-size:0.6rem; color:#475569; letter-spacing:0.08em; text-transform:uppercase; }}
+.hud-pill .val {{ font-family:'Orbitron',monospace; font-size:1.4rem; font-weight:900; color:#f59e0b; }}
+.hud-pill .val.mv {{ color:#38bdf8; }}
+
+/* ---- メッセージ ---- */
+.msg {{
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-height: 1.3rem;
+  margin-bottom: 10px;
+  color: {msg_color};
+  letter-spacing: 0.02em;
+}}
+
+/* ---- 数字パレット ---- */
+.palette-wrap {{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}}
+.palette-label {{
+  font-size: 0.68rem;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-right: 4px;
+}}
+.num-btn {{
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  font-family: 'Orbitron', monospace;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: rgba(255,255,255,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}}
+.num-btn:hover {{
+  transform: translateY(-3px) scale(1.08);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+}}
+.num-btn.selected {{
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.35), 0 6px 20px rgba(0,0,0,0.5);
+  transform: scale(1.12);
+}}
+
+/* ---- グリッド ---- */
+.grid-outer {{
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}}
+.grid {{
+  display: grid;
+  grid-template-columns: repeat({GRID_SIZE}, 50px);
+  grid-template-rows: repeat({GRID_SIZE}, 50px);
+  gap: 3px;
+  background: #0f172a;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid #1e293b;
+}}
+.cell {{
+  width: 50px; height: 50px;
+  border-radius: 8px;
+  background: #0c1524;
+  border: 1px solid #1e293b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', monospace;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: rgba(255,255,255,0.88);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  transition: transform 0.1s, filter 0.1s;
+  position: relative;
+  user-select: none;
+}}
+.cell.empty {{
+  color: transparent;
+}}
+.cell.empty:hover {{
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.2);
+  transform: scale(1.06);
+}}
+.cell.filled:hover {{
+  filter: brightness(1.25);
+  transform: scale(1.04);
+}}
+.cell.preview-ok {{
+  border-color: rgba(255,255,255,0.6) !important;
+  filter: brightness(1.3);
+  transform: scale(1.07);
+}}
+.cell.preview-ng {{
+  border-color: #ef4444 !important;
+}}
+@keyframes clearPop {{
+  0%   {{ transform: scale(1.4); filter: brightness(2.5); opacity:1; }}
+  60%  {{ transform: scale(0.7); filter: brightness(1.5); }}
+  100% {{ transform: scale(0); opacity: 0; }}
+}}
+.cell.popping {{
+  animation: clearPop 0.42s ease forwards;
+  pointer-events: none;
+}}
+
+/* ---- 行・列の合計ヒント ---- */
+.sum-row {{
+  display: grid;
+  grid-template-columns: repeat({GRID_SIZE}, 50px);
+  gap: 3px;
+  padding: 0 6px;
+  margin-bottom: 4px;
+}}
+.sum-col-wrap {{
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 0;
+}}
+.sum-cell {{
+  width: 50px; height: 20px;
+  border-radius: 4px;
+  display: flex; align-items:center; justify-content:center;
+  font-size: 0.62rem;
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  color: #334155;
+  background: transparent;
+}}
+.sum-cell.hot {{ color: #f59e0b; }}
+.sum-cell.over {{ color: #ef4444; }}
+
+.row-sums {{
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 0;
+  margin-left: 4px;
+}}
+.row-sum-cell {{
+  height: 50px;
+  display: flex; align-items:center; justify-content:center;
+  font-size: 0.62rem;
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  color: #334155;
+  min-width: 22px;
+}}
+.row-sum-cell.hot  {{ color: #f59e0b; }}
+.row-sum-cell.over {{ color: #ef4444; }}
+
+.grid-with-sums {{
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}}
+.grid-block {{
+  display: flex;
+  flex-direction: column;
+}}
+</style>
+</head>
+<body>
+
+<div class="title">NUMBER BLAST</div>
+<div class="subtitle">縦か横に連続した合計が <b style="color:#f59e0b">{TARGET}</b> になったら消える！</div>
+
+<div class="hud">
+  <div class="hud-pill">
+    <div class="lbl">スコア</div>
+    <div class="val" id="score-val">{score}</div>
+  </div>
+  <div class="hud-pill">
+    <div class="lbl">手数</div>
+    <div class="val mv" id="moves-val">{moves}</div>
+  </div>
+</div>
+
+<div class="msg" id="msg">{msg}</div>
+
+<!-- 数字パレット -->
+<div class="palette-wrap">
+  <span class="palette-label">数字を選ぶ▶</span>
+"""
+
+for n in NUM_RANGE:
+    sel_cls = " selected" if n == sel else ""
+    html_code += f'  <div class="num-btn{sel_cls}" id="nbtn-{n}" style="background:{COLORS[n]};" onclick="selectNum({n})">{n}</div>\n'
+
+html_code += f"""
+</div>
+
+<!-- グリッド + 合計 -->
+<div class="grid-with-sums">
+  <div class="grid-block">
+    <!-- 列合計(上) -->
+    <div class="sum-row" id="col-sums"></div>
+    <!-- グリッド本体 -->
+    <div class="grid-outer">
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+  <!-- 行合計(右) -->
+  <div class="row-sums" id="row-sums" style="margin-top:20px;"></div>
+</div>
+
+<script>
+const GRID_SIZE = {GRID_SIZE};
+const TARGET    = {TARGET};
+const COLORS    = {colors_js};
+let   grid      = {grid_js};
+let   selNum    = {sel};
+
+// ============ 合計ヒント計算 ============
+function rowMaxConsec(r) {{
+  let cells = [];
+  for (let c=0; c<GRID_SIZE; c++) if (grid[r][c]!==0) cells.push([r,c]);
+  let maxSum = 0;
+  for (let s=0; s<cells.length; s++) {{
+    let total=0;
+    for (let i=s; i<cells.length; i++) {{
+      let [rr,cc]=cells[i];
+      if (i>s && cc !== cells[i-1][1]+1) break;
+      total += grid[rr][cc];
+      if (total > maxSum) maxSum = total;
+      if (total >= TARGET) break;
+    }}
+  }}
+  // 行全体の合計も
+  let rowTotal = 0;
+  for (let c=0; c<GRID_SIZE; c++) rowTotal += grid[r][c];
+  return rowTotal;
+}}
+function colTotal(c) {{
+  let t=0;
+  for (let r=0; r<GRID_SIZE; r++) t+=grid[r][c];
+  return t;
+}}
+
+// ============ レンダリング ============
+function render() {{
+  renderGrid();
+  renderSums();
+}}
+
+function renderGrid() {{
+  const container = document.getElementById('grid');
+  container.innerHTML = '';
+  for (let r=0; r<GRID_SIZE; r++) {{
+    for (let c=0; c<GRID_SIZE; c++) {{
+      let div = document.createElement('div');
+      div.className = 'cell';
+      div.dataset.r = r; div.dataset.c = c;
+      let val = grid[r][c];
+      if (val !== 0) {{
+        div.classList.add('filled');
+        div.style.background = COLORS[val];
+        div.style.boxShadow  = `0 0 10px ${{COLORS[val]}}55 inset, 0 2px 8px rgba(0,0,0,0.5)`;
+        div.textContent = val;
+      }} else {{
+        div.classList.add('empty');
+      }}
+      div.addEventListener('mouseenter', onEnter);
+      div.addEventListener('mouseleave', onLeave);
+      div.addEventListener('click', onClickCell);
+      container.appendChild(div);
+    }}
+  }}
+}}
+
+function renderSums() {{
+  // 列合計
+  const colWrap = document.getElementById('col-sums');
+  colWrap.innerHTML = '';
+  for (let c=0; c<GRID_SIZE; c++) {{
+    let t = colTotal(c);
+    let div = document.createElement('div');
+    div.className = 'sum-cell' + (t===TARGET?' hot':(t>TARGET?' over':''));
+    div.textContent = t > 0 ? t : '';
+    colWrap.appendChild(div);
+  }}
+  // 行合計
+  const rowWrap = document.getElementById('row-sums');
+  rowWrap.innerHTML = '';
+  for (let r=0; r<GRID_SIZE; r++) {{
+    let t = rowMaxConsec(r);
+    let div = document.createElement('div');
+    div.className = 'row-sum-cell' + (t===TARGET?' hot':(t>TARGET?' over':''));
+    div.textContent = t > 0 ? t : '';
+    rowWrap.appendChild(div);
+  }}
+}}
+
+// ============ ホバープレビュー ============
+function onEnter(e) {{
+  let r = +e.currentTarget.dataset.r;
+  let c = +e.currentTarget.dataset.c;
+  let cell = e.currentTarget;
+  if (grid[r][c] !== 0) {{ cell.classList.add('preview-ng'); return; }}
+  cell.classList.add('preview-ok');
+  // プレビュー数字表示
+  cell.style.background = COLORS[selNum] + '88';
+  cell.style.color = 'rgba(255,255,255,0.75)';
+  cell.textContent = selNum;
+}}
+function onLeave(e) {{
+  let r = +e.currentTarget.dataset.r;
+  let c = +e.currentTarget.dataset.c;
+  let cell = e.currentTarget;
+  cell.classList.remove('preview-ok','preview-ng');
+  // 元に戻す
+  let val = grid[r][c];
+  if (val !== 0) {{
+    cell.style.background = COLORS[val];
+    cell.style.color = 'rgba(255,255,255,0.88)';
+    cell.textContent = val;
+  }} else {{
+    cell.style.background = '';
+    cell.style.color = 'transparent';
+    cell.textContent = '';
+  }}
+}}
+
+// ============ クリックで配置 ============
+function onClickCell(e) {{
+  let r = +e.currentTarget.dataset.r;
+  let c = +e.currentTarget.dataset.c;
+  // Streamlitにパラメータ送信してページ更新
+  const url = new URL(window.parent.location.href);
+  url.searchParams.set('r', r);
+  url.searchParams.set('c', c);
+  url.searchParams.set('n', selNum);
+  window.parent.location.href = url.toString();
+}}
+
+// ============ 数字選択 ============
+function selectNum(n) {{
+  selNum = n;
+  document.querySelectorAll('.num-btn').forEach(btn => btn.classList.remove('selected'));
+  document.getElementById('nbtn-' + n).classList.add('selected');
+  document.getElementById('msg').textContent = '数字 ' + n + ' を選択中 — グリッドをクリック！';
+  document.getElementById('msg').style.color = '#94a3b8';
+  // Streamlitに選択を通知
+  const url = new URL(window.parent.location.href);
+  url.searchParams.set('selnum', n);
+  window.parent.location.href = url.toString();
+}}
+
+// ============ 初期描画 ============
+render();
+</script>
+</body>
+</html>
+"""
+
+# Streamlitタイトル非表示（HTML内で表示）
+st_html(html_code, height=680, scrolling=False)
+
+# リセットボタン
+col1, col2, col3 = st.columns([2, 1, 2])
+with col2:
+    if st.button("🔄 リセット", use_container_width=True):
+        for k in ["grid","score","sel_num","msg","msg_type","last_cleared","game_over","moves"]:
+            st.session_state.pop(k, None)
+        st.rerun()
+
 with st.expander("📖 遊び方"):
-    st.markdown("""
-    1. **ピースを選ぶ** → 下のボタンで選択（黄色ハイライト）
-    2. **行・列を指定** → グリッドの上から何行目、左から何列目かを入力（1〜8）
-    3. **「✅ 置く」ボタン** → ピースを配置！
-    4. **縦または横に連続するマスの数字の合計が10**になると消えてポイントゲット！
-    5. 3枚全部使うと新しいピースが3枚補充される
-    6. どのピースも置けなくなったらゲームオーバー
-    
-    **ポイント**: 消去1マスにつき10点。連鎖を狙って高得点を目指そう！
+    st.markdown(f"""
+    1. **カラーボタンで数字を選ぶ**（1〜9）
+    2. **グリッドにカーソルを乗せる** → 置く数字がプレビュー表示
+    3. **クリックで配置！**
+    4. 縦か横に連続したマスの合計が **{TARGET}** になったら自動消去 🎉
+    5. 消去 1マスにつき **{TARGET}点**
+    6. 右と上に各行・列の合計ヒントが表示される
+
+    **戦略のコツ**: 合計ヒントを見て、あと何を足せば{TARGET}になるか考えよう！
     """)
