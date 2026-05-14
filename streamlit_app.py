@@ -324,27 +324,33 @@ def generate_question(level: str) -> dict:
         _q_lcm, _q_gcd_q,
         _q_area_rect, _q_area_triangle, _q_volume_box,
         _q_pythagorean,
-        _q_fraction_add, _q_fraction_mul,
+        _q_fraction_add, _q_fraction_mul, _q_fraction_sub,
         _q_proportion,
         _q_speed_distance_time,
         _q_number_pattern,
+        _q_angle_triangle, _q_angle_parallel,
+        _q_circle_area, _q_circle_circumference,
+        _q_simple_interest,
+        _q_abs_integer,
+        _q_prime_check,
     ]
     high_school = [
-        _q_quadratic, _q_factoring_hs,
-        _q_sqrt_simplify, _q_sqrt_calc,
-        _q_log, _q_log_product,
+        _q_quadratic, _q_factoring_hs, _q_quadratic_formula,
+        _q_sqrt_simplify, _q_sqrt_calc, _q_sqrt_rationalize,
         _q_trig, _q_trig_identity,
         _q_arithmetic_seq, _q_arithmetic_seq_sum,
-        _q_geometric_seq,
+        _q_geometric_seq, _q_geometric_seq_sum,
         _q_fraction_eq,
         _q_abs_value,
-        _q_inequality,
-        _q_vertex_form,
+        _q_inequality, _q_inequality_abs,
+        _q_vertex_form, _q_parabola_intercept,
         _q_combination, _q_permutation,
-        _q_probability_basic,
-        _q_vector_dot,
-        _q_complex_add,
+        _q_probability_basic, _q_probability_two_dice,
+        _q_vector_dot, _q_vector_magnitude,
         _q_remainder,
+        _q_complex_add, _q_complex_mul, _q_complex_abs,
+        _q_set_union, _q_set_intersection,
+        _q_binomial_coeff,
     ]
 
     if level == "中学":
@@ -554,10 +560,185 @@ def _q_number_pattern():
     seq   = [start + d * i for i in range(n)]
     return {"q": f"数列 {', '.join(map(str,seq))}, □ の □ は？", "a": seq[-1] + d, "hint": "数の規則"}
 
+def _q_fraction_sub():
+    """異分母の分数の引き算。"""
+    from math import lcm as _lcm
+    a_d = random.randint(2, 8)
+    b_d = random.randint(2, 8)
+    L   = _lcm(a_d, b_d)
+    # 引き算が正になるよう調整
+    a_n = random.randint(2, 6)
+    b_n = random.randint(1, 3)
+    num = a_n * (L // a_d) - b_n * (L // b_d)
+    if num <= 0:
+        a_n, b_n = b_n + 3, 1
+        num = a_n * (L // a_d) - b_n * (L // b_d)
+    g   = gcd(abs(num), L)
+    rn, rd = num // g, L // g
+    ans = str(rn) if rd == 1 else f"{rn}/{rd}"
+    return {"q": f"{a_n}/{a_d} - {b_n}/{b_d} = ?  （既約分数で）", "a": ans, "hint": "分数の引き算"}
+
+def _q_angle_triangle():
+    """三角形の内角の和。"""
+    a = random.randint(30, 80)
+    b = random.randint(30, 80)
+    c = 180 - a - b
+    if c <= 0:
+        a, b = 40, 60
+        c = 80
+    return {"q": f"三角形の 2 つの角が {a}°、{b}° のとき、残りの角は？", "a": c, "hint": "三角形の内角"}
+
+def _q_angle_parallel():
+    """平行線と錯角・同位角。"""
+    angle = random.randint(30, 150)
+    kind  = random.choice(["錯角", "同位角"])
+    return {"q": f"平行線で一方の角が {angle}°。{kind} は何度？", "a": angle, "hint": "平行線の角"}
+
+def _q_circle_area():
+    r = random.randint(1, 10)
+    # π を 3.14 で計算、整数のみ出題
+    ans = r * r  # πr² の r² だけ答えさせる
+    return {"q": f"半径 {r}cm の円の面積は何 π cm²？（π の係数を答えよ）", "a": ans, "hint": "円の面積"}
+
+def _q_circle_circumference():
+    r = random.randint(1, 10)
+    ans = 2 * r  # 2πr の係数
+    return {"q": f"半径 {r}cm の円の円周は何 π cm？（π の係数を答えよ）", "a": ans, "hint": "円周の長さ"}
+
+def _q_simple_interest():
+    """単利計算。"""
+    principal = random.choice([1000, 2000, 5000, 10000])
+    rate      = random.choice([2, 3, 4, 5])
+    years     = random.randint(1, 5)
+    interest  = principal * rate * years // 100
+    return {"q": f"{principal}円を年利{rate}%の単利で{years}年預けたときの利子は？（円）", "a": interest, "hint": "単利"}
+
+def _q_abs_integer():
+    a = random.randint(-20, 20)
+    b = random.randint(-20, 20)
+    return {"q": f"|{a}| + |{b}| = ?", "a": abs(a) + abs(b), "hint": "絶対値の計算"}
+
+def _q_prime_check():
+    """素数の問題。n 以下の素数の個数。"""
+    n      = random.choice([10, 20, 30])
+    primes = [x for x in range(2, n+1) if all(x % d != 0 for d in range(2, x))]
+    return {"q": f"{n} 以下の素数は何個？", "a": len(primes), "hint": "素数"}
+
 
 # ═══════════════════════════════════════════
-#  高校レベル問題  (20種)
+#  高校レベル問題  (追加分)
 # ═══════════════════════════════════════════
+
+def _q_quadratic_formula():
+    """解の公式を使う二次方程式。判別式 b²-4ac が完全平方数になるよう設定。"""
+    r1 = random.randint(-5, 5)
+    r2 = random.randint(-5, 5)
+    b  = -(r1 + r2)
+    c  = r1 * r2
+    sign_b = '+' if b >= 0 else '-'
+    sign_c = '+' if c >= 0 else '-'
+    return {
+        "q": f"x² {sign_b} {abs(b)}x {sign_c} {abs(c)} = 0 の解の和は？",
+        "a": r1 + r2,
+        "hint": "解と係数の関係"
+    }
+
+def _q_sqrt_rationalize():
+    """有理化。1/√n = √n/n → 分子は？"""
+    n   = random.choice([2, 3, 5, 6, 7])
+    return {"q": f"1/√{n} を有理化すると √{n}/□。□ は？", "a": n, "hint": "有理化"}
+
+def _q_geometric_seq_sum():
+    """等比数列の和 S = a(r^n - 1)/(r-1)。"""
+    a1 = random.randint(1, 3)
+    r  = random.randint(2, 3)
+    n  = random.randint(3, 5)
+    s  = a1 * (r**n - 1) // (r - 1)
+    return {"q": f"初項 {a1}、公比 {r} の等比数列の初項から第 {n} 項までの和は？", "a": s, "hint": "等比数列の和"}
+
+def _q_parabola_intercept():
+    """y = x² + bx + c の y 切片（x=0）。"""
+    b = random.randint(-5, 5)
+    c = random.randint(-10, 10)
+    sign_b = '+' if b >= 0 else '-'
+    sign_c = '+' if c >= 0 else '-'
+    return {"q": f"y = x² {sign_b} {abs(b)}x {sign_c} {abs(c)} の y 切片は？", "a": c, "hint": "放物線の切片"}
+
+def _q_inequality_abs():
+    """絶対値不等式 |x| < a の整数解の個数。"""
+    a = random.randint(2, 6)
+    cnt = 2 * a - 1  # -a+1 〜 a-1
+    return {"q": f"|x| < {a} を満たす整数 x の個数は？", "a": cnt, "hint": "絶対値不等式"}
+
+def _q_probability_two_dice():
+    """2個のサイコロの和の確率。"""
+    target = random.choice([7, 6, 8, 5, 9])
+    ways   = sum(1 for i in range(1,7) for j in range(1,7) if i+j==target)
+    g      = gcd(ways, 36)
+    ans    = f"{ways//g}/{36//g}"
+    return {"q": f"2個のサイコロを投げて和が {target} になる確率は？（既約分数で）", "a": ans, "hint": "確率"}
+
+def _q_vector_magnitude():
+    """ベクトルの大きさ（整数になるケースのみ）。"""
+    triples = [(3,4,5),(5,12,13),(8,15,17),(6,8,10)]
+    a, b, c = random.choice(triples)
+    return {"q": f"ベクトル ({a},{b}) の大きさは？", "a": c, "hint": "ベクトルの大きさ"}
+
+def _q_complex_add():
+    a, b = random.randint(-5, 5), random.randint(-5, 5)
+    c, d = random.randint(-5, 5), random.randint(-5, 5)
+    sign_b = '+' if b >= 0 else '-'
+    sign_d = '+' if d >= 0 else '-'
+    real = a + c
+    imag = b + d
+    sign_i = '+' if imag >= 0 else '-'
+    ans = f"{real}{sign_i}{abs(imag)}i" if imag != 0 else str(real)
+    return {"q": f"({a}{'+' if b>=0 else '-'}{abs(b)}i) + ({c}{'+' if d>=0 else '-'}{abs(d)}i) の実部は？", "a": real, "hint": "複素数の加法"}
+
+def _q_complex_mul():
+    """(a+bi)(c+di) の実部。"""
+    a, b = random.randint(-3, 3), random.randint(-3, 3)
+    c, d = random.randint(-3, 3), random.randint(-3, 3)
+    real = a*c - b*d
+    sign_b = '+' if b >= 0 else '-'
+    sign_d = '+' if d >= 0 else '-'
+    return {
+        "q": f"({a}{sign_b}{abs(b)}i)×({c}{sign_d}{abs(d)}i) の実部は？",
+        "a": real,
+        "hint": "複素数の乗法"
+    }
+
+def _q_complex_abs():
+    """|a+bi| = √(a²+b²)。整数になるケースのみ。"""
+    triples = [(3,4,5),(5,12,13),(6,8,10),(8,15,17)]
+    a, b, c = random.choice(triples)
+    sign_b = '+' if b >= 0 else '-'
+    return {"q": f"|{a}+{b}i| = ?", "a": c, "hint": "複素数の絶対値"}
+
+def _q_set_union():
+    """集合の要素数（和集合）。"""
+    total = random.randint(20, 50)
+    a     = random.randint(8, total - 5)
+    b     = random.randint(8, total - 5)
+    inter = random.randint(2, min(a, b) - 1)
+    union = a + b - inter
+    return {"q": f"|A|={a}、|B|={b}、|A∩B|={inter} のとき |A∪B| は？", "a": union, "hint": "集合の要素数"}
+
+def _q_set_intersection():
+    """包除原理の逆。"""
+    a     = random.randint(10, 30)
+    b     = random.randint(10, 30)
+    union = random.randint(max(a,b), a + b - 1)
+    inter = a + b - union
+    return {"q": f"|A|={a}、|B|={b}、|A∪B|={union} のとき |A∩B| は？", "a": inter, "hint": "集合の包除原理"}
+
+def _q_binomial_coeff():
+    """二項定理 (a+b)^n の特定項の係数。"""
+    from math import comb
+    n = random.randint(3, 5)
+    k = random.randint(1, n-1)
+    coeff = comb(n, k)
+    return {"q": f"(x+1)^{n} を展開したとき x^{n-k} の係数は？", "a": coeff, "hint": "二項定理"}
 
 def _q_quadratic():
     n = random.randint(1, 10)
@@ -761,10 +942,10 @@ def _q_remainder():
 # ─── AI の回答速度計算 ────────────────────────────────────────
 
 AI_SPEED = {
-    "よわい":     (15.0, 30.0),
-    "ふつう":     ( 8.0, 18.0),
-    "つよい":     ( 3.0,  8.0),
-    "さいきょう": ( 0.8,  3.0),
+    "よわい":     (18.0, 33.0),
+    "ふつう":     (11.0, 21.0),
+    "つよい":     ( 8.0, 15.0),
+    "さいきょう": ( 5.0,  9.0),
 }
 
 
@@ -846,9 +1027,11 @@ def check_answer(user_input: str):
             f"Q{st.session_state.round_num}: あなたが先取！ 答え={correct_val}"
         )
     else:
-        st.session_state.last_result = "wrong"
+        # 不正解 → AIにポイント
+        st.session_state.ai_score    += 1
+        st.session_state.last_result  = "wrong"
         st.session_state.history.append(
-            f"Q{st.session_state.round_num}: 不正解… 正解={correct_val}"
+            f"Q{st.session_state.round_num}: 不正解… 正解={correct_val}（AIに+1）"
         )
 
     st.session_state.answered = True
@@ -900,10 +1083,10 @@ if st.session_state.phase == "menu":
         st.session_state.difficulty = difficulty
 
         speed_desc = {
-            "よわい":     "🐢 AIが答えるまで 15〜30 秒",
-            "ふつう":     "🐇 AIが答えるまで 8〜18 秒",
-            "つよい":     "🦅 AIが答えるまで 3〜8 秒",
-            "さいきょう": "⚡ AIが答えるまで 0.8〜3 秒",
+            "よわい":     "🐢 AIが答えるまで 18〜33 秒",
+            "ふつう":     "🐇 AIが答えるまで 11〜21 秒",
+            "つよい":     "🦅 AIが答えるまで 8〜15 秒",
+            "さいきょう": "⚡ AIが答えるまで 5〜9 秒",
         }
         st.caption(speed_desc[difficulty])
 
@@ -1026,12 +1209,9 @@ elif st.session_state.phase == "playing":
         if result == "player":
             st.markdown('<div class="result-correct">⚡ 正解！ あなたが先取しました！ +1</div>', unsafe_allow_html=True)
         elif result == "ai":
-            st.markdown(f'<div class="result-wrong">🤖 AIが先取… 正解は {q["a"]} でした</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="result-wrong">🤖 AIが先取… 正解は {q["a"]} でした（AI +1）</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="result-wrong">❌ 不正解… 正解は {q["a"]} でした（AIが得点）</div>', unsafe_allow_html=True)
-            # 不正解の場合もAIポイント付与
-            if result == "wrong" and not any("AIが得点" in h for h in st.session_state.history[-1:]):
-                pass  # すでに履歴に記録済み
+            st.markdown(f'<div class="result-wrong">❌ 不正解… 正解は {q["a"]} でした（AI +1）</div>', unsafe_allow_html=True)
 
         st.markdown("")
         if st.button("▶ 次の問題へ", use_container_width=True):
