@@ -2,8 +2,7 @@ import streamlit as st
 import random
 import time
 import math
-import sympy as sp
-from sympy import symbols, expand, factor, simplify, solve, sqrt, Rational
+from math import gcd
 
 # ─── ページ設定 ───────────────────────────────────────────────
 st.set_page_config(
@@ -482,18 +481,20 @@ def _q_geometric_seq():
 
 
 def _q_fraction_eq():
-    """分数方程式。"""
-    x   = random.randint(2, 15)
-    a   = random.randint(1, 5)
-    b   = random.randint(1, 5)
-    rhs = Rational(a, x) + Rational(b, x)
-    num = int(rhs.p)
-    den = int(rhs.q)
-    if den == 1:
-        q = f"{a}/{x} + {b}/{x} = ?"
+    """分数の足し算（同分母）。"""
+    denom = random.randint(2, 12)
+    a     = random.randint(1, denom - 1)
+    b     = random.randint(1, denom - 1)
+    num   = a + b
+    g     = gcd(num, denom)
+    r_num = num // g
+    r_den = denom // g
+    if r_den == 1:
+        q   = f"{a}/{denom} + {b}/{denom} = ?"
+        ans = str(r_num)
     else:
-        q = f"{a}/{x} + {b}/{x} = ? （分数のまま答えよ。例: 3/4）"
-    ans = f"{num}/{den}" if den != 1 else str(num)
+        q   = f"{a}/{denom} + {b}/{denom} = ? （既約分数で答えよ。例: 3/4）"
+        ans = f"{r_num}/{r_den}"
     return {"q": q, "a": ans, "hint": "分数計算"}
 
 
