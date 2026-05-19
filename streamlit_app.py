@@ -1,1305 +1,736 @@
 import streamlit as st
 import random
 import time
-import math
-from math import gcd
 
 # ─── ページ設定 ───────────────────────────────────────────────
 st.set_page_config(
-    page_title="数学バトル",
-    page_icon="⚡",
-    layout="wide",
+    page_title="⚔️ 数学バトル",
+    page_icon="⚔️",
+    layout="centered",
 )
 
-# ─── カスタムCSS ──────────────────────────────────────────────
+# ─── スタイル ─────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Orbitron:wght@700;900&display=swap');
 
-:root {
-    --neon-blue: #00f5ff;
-    --neon-pink: #ff006e;
-    --neon-yellow: #ffbe0b;
-    --dark-bg: #0a0a1a;
-    --card-bg: #0d0d2b;
-    --border-glow: rgba(0,245,255,0.4);
-}
-
-html, body, [data-testid="stAppViewContainer"] {
-    background: var(--dark-bg) !important;
-    color: #e0e0ff;
+/* 全体 */
+html, body, [class*="css"] {
     font-family: 'Noto Sans JP', sans-serif;
+    background-color: #0d0d1a;
+    color: #f0f0ff;
 }
 
-[data-testid="stAppViewContainer"]::before {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: 
-        radial-gradient(ellipse at 20% 20%, rgba(0,245,255,0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 80%, rgba(255,0,110,0.06) 0%, transparent 50%);
-    pointer-events: none;
-    z-index: 0;
+/* メインコンテナ */
+.block-container {
+    padding-top: 2rem;
+    max-width: 760px;
 }
 
-[data-testid="stHeader"] { background: transparent !important; }
-[data-testid="stSidebar"] { display: none; }
-
-h1, h2, h3 {
-    font-family: 'Orbitron', monospace !important;
-}
-
-.title-main {
-    font-family: 'Orbitron', monospace;
-    font-size: 3.5rem;
-    font-weight: 900;
+/* タイトル */
+h1 {
+    font-family: 'Orbitron', sans-serif !important;
     text-align: center;
-    background: linear-gradient(135deg, var(--neon-blue), var(--neon-pink));
+    font-size: 2.8rem !important;
+    background: linear-gradient(135deg, #ff6ec7, #a78bfa, #60a5fa);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: none;
-    margin: 0;
-    letter-spacing: 0.1em;
-    animation: glow-title 2s ease-in-out infinite alternate;
+    margin-bottom: 0.2rem !important;
 }
 
-@keyframes glow-title {
-    from { filter: drop-shadow(0 0 8px rgba(0,245,255,0.5)); }
-    to   { filter: drop-shadow(0 0 20px rgba(255,0,110,0.7)); }
-}
-
-.subtitle {
-    text-align: center;
-    color: rgba(224,224,255,0.5);
-    font-size: 1rem;
-    letter-spacing: 0.3em;
-    margin-bottom: 2rem;
-    font-family: 'Orbitron', monospace;
-}
-
-.score-panel {
-    background: var(--card-bg);
-    border: 1px solid var(--border-glow);
-    border-radius: 12px;
-    padding: 1.5rem;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-
-.score-panel::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
-}
-
-.score-label {
-    font-family: 'Orbitron', monospace;
-    font-size: 0.7rem;
-    letter-spacing: 0.2em;
-    color: rgba(224,224,255,0.5);
-    margin-bottom: 0.5rem;
-}
-
-.score-value {
-    font-family: 'Orbitron', monospace;
-    font-size: 3rem;
-    font-weight: 900;
-    line-height: 1;
-}
-
-.score-player { color: var(--neon-blue); }
-.score-ai     { color: var(--neon-pink); }
-.score-vs {
-    font-family: 'Orbitron', monospace;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--neon-yellow);
-    text-align: center;
-    padding-top: 1.5rem;
-}
-
-.question-box {
-    background: linear-gradient(135deg, rgba(0,245,255,0.05), rgba(255,0,110,0.05));
-    border: 2px solid rgba(0,245,255,0.3);
-    border-radius: 16px;
-    padding: 2rem;
-    text-align: center;
-    margin: 1.5rem 0;
-    position: relative;
-}
-
-.question-box::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 16px;
-    background: linear-gradient(135deg, transparent 30%, rgba(0,245,255,0.03));
-    pointer-events: none;
-}
-
-.question-label {
-    font-family: 'Orbitron', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.4em;
-    color: var(--neon-blue);
-    margin-bottom: 0.8rem;
-}
-
-.question-text {
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: #ffffff;
-    letter-spacing: 0.05em;
-    font-family: 'Orbitron', monospace;
-}
-
-.timer-bar-container {
-    width: 100%;
-    height: 6px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 3px;
-    margin: 1rem 0;
-    overflow: hidden;
-}
-
-.timer-bar {
-    height: 100%;
-    border-radius: 3px;
-    background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink));
-    transition: width 0.5s linear;
-}
-
-.ai-thinking {
-    background: rgba(255,0,110,0.08);
-    border: 1px solid rgba(255,0,110,0.3);
-    border-radius: 8px;
-    padding: 0.8rem 1.2rem;
-    font-size: 0.85rem;
-    color: var(--neon-pink);
-    font-family: 'Orbitron', monospace;
-    letter-spacing: 0.1em;
-    text-align: center;
-    animation: pulse-pink 1s ease-in-out infinite;
-}
-
-@keyframes pulse-pink {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.5; }
-}
-
-.result-correct {
-    background: rgba(0,245,255,0.1);
-    border: 1px solid var(--neon-blue);
-    border-radius: 8px;
-    padding: 0.8rem;
-    color: var(--neon-blue);
-    font-family: 'Orbitron', monospace;
-    font-size: 0.9rem;
-    text-align: center;
-    letter-spacing: 0.1em;
-}
-
-.result-wrong {
-    background: rgba(255,0,110,0.1);
-    border: 1px solid var(--neon-pink);
-    border-radius: 8px;
-    padding: 0.8rem;
-    color: var(--neon-pink);
-    font-family: 'Orbitron', monospace;
-    font-size: 0.9rem;
-    text-align: center;
-    letter-spacing: 0.1em;
-}
-
-.win-banner {
-    background: linear-gradient(135deg, rgba(0,245,255,0.15), rgba(255,190,11,0.1));
-    border: 2px solid var(--neon-blue);
-    border-radius: 20px;
-    padding: 3rem;
-    text-align: center;
-    animation: victory-pulse 1.5s ease-in-out infinite alternate;
-}
-
-.lose-banner {
-    background: linear-gradient(135deg, rgba(255,0,110,0.15), rgba(0,0,0,0.3));
-    border: 2px solid var(--neon-pink);
-    border-radius: 20px;
-    padding: 3rem;
-    text-align: center;
-}
-
-@keyframes victory-pulse {
-    from { box-shadow: 0 0 20px rgba(0,245,255,0.3); }
-    to   { box-shadow: 0 0 50px rgba(0,245,255,0.7), 0 0 80px rgba(255,190,11,0.3); }
-}
-
-.banner-title {
-    font-family: 'Orbitron', monospace;
-    font-size: 3rem;
-    font-weight: 900;
-    margin-bottom: 1rem;
-}
-
-.difficulty-card {
-    background: var(--card-bg);
-    border: 1px solid rgba(0,245,255,0.2);
-    border-radius: 12px;
-    padding: 1.5rem;
-    text-align: center;
-    transition: all 0.2s;
-    cursor: pointer;
-}
-
-.stButton button {
-    width: 100%;
-    font-family: 'Orbitron', monospace !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.1em !important;
-    border-radius: 8px !important;
-    transition: all 0.2s !important;
-}
-
-.stTextInput input {
-    background: rgba(0,245,255,0.05) !important;
-    border: 1px solid rgba(0,245,255,0.3) !important;
-    border-radius: 8px !important;
-    color: #ffffff !important;
-    font-family: 'Orbitron', monospace !important;
-    font-size: 1.2rem !important;
-    text-align: center !important;
-    letter-spacing: 0.1em !important;
-}
-
-.stTextInput input:focus {
-    border-color: var(--neon-blue) !important;
-    box-shadow: 0 0 12px rgba(0,245,255,0.3) !important;
-}
-
-.progress-dots {
+/* HP バー */
+.hp-row {
     display: flex;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 0.5rem;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin: 1rem 0;
+}
+.hp-box {
+    flex: 1;
+    border-radius: 12px;
+    padding: 12px 16px;
+    background: #1a1a2e;
+    border: 1px solid #2d2d4e;
+}
+.hp-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #a0a0c0;
+    margin-bottom: 4px;
+}
+.hp-name {
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: #ffffff;
+    margin-bottom: 6px;
+}
+.hp-bar-bg {
+    height: 14px;
+    border-radius: 7px;
+    background: #2d2d4e;
+    overflow: hidden;
+}
+.hp-bar-fill-player {
+    height: 100%;
+    border-radius: 7px;
+    background: linear-gradient(90deg, #34d399, #10b981);
+    transition: width 0.5s;
+}
+.hp-bar-fill-enemy {
+    height: 100%;
+    border-radius: 7px;
+    background: linear-gradient(90deg, #f87171, #ef4444);
+    transition: width 0.5s;
+}
+.hp-text {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    margin-top: 4px;
+    text-align: right;
 }
 
-.dot {
-    width: 12px; height: 12px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.1);
+/* 問題カード */
+.question-card {
+    background: linear-gradient(135deg, #1e1b4b, #1a1a2e);
+    border: 2px solid #4f46e5;
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin: 1.2rem 0;
+    box-shadow: 0 0 24px rgba(79, 70, 229, 0.3);
+}
+.question-level {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #818cf8;
+    margin-bottom: 10px;
+}
+.question-text {
+    font-size: 1.55rem;
+    font-weight: 700;
+    color: #f8f9ff;
+    line-height: 1.5;
+}
+
+/* 選択肢ボタン */
+.stButton > button {
+    width: 100%;
+    background: #1e1b4b !important;
+    color: #e2e8ff !important;
+    border: 2px solid #4f46e5 !important;
+    border-radius: 10px !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    padding: 14px 20px !important;
+    transition: all 0.2s ease !important;
+    font-family: 'Noto Sans JP', sans-serif !important;
+}
+.stButton > button:hover {
+    background: #312e81 !important;
+    border-color: #818cf8 !important;
+    color: #ffffff !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(129, 140, 248, 0.4) !important;
+}
+.stButton > button:active {
+    transform: translateY(0px) !important;
+}
+
+/* 解説ボックス */
+.explanation-box {
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin: 1rem 0;
+    font-size: 1.0rem;
+    line-height: 1.8;
+    font-weight: 500;
+}
+.explanation-correct {
+    background: #052e16;
+    border: 2px solid #16a34a;
+    color: #bbf7d0;
+}
+.explanation-wrong {
+    background: #2d0a0a;
+    border: 2px solid #dc2626;
+    color: #fecaca;
+}
+.explanation-title {
+    font-size: 1.1rem;
+    font-weight: 900;
+    margin-bottom: 10px;
+}
+.explanation-detail {
+    background: rgba(0,0,0,0.25);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 10px;
+    color: #f0f0ff;
+    font-size: 0.98rem;
+    line-height: 1.9;
+    font-weight: 400;
+}
+
+/* バトルログ */
+.battle-log {
+    background: #0f0f1e;
+    border: 1px solid #2d2d4e;
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 0.9rem;
+    color: #c4c4e0;
+    max-height: 140px;
+    overflow-y: auto;
+    line-height: 1.7;
+    font-family: 'Noto Sans JP', monospace;
+}
+
+/* ステータスバッジ */
+.badge {
     display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin: 2px;
+}
+.badge-round { background: #1e3a5f; color: #93c5fd; border: 1px solid #3b82f6; }
+.badge-score { background: #1e1b4b; color: #a5b4fc; border: 1px solid #6366f1; }
+.badge-combo { background: #2d1b0e; color: #fcd34d; border: 1px solid #f59e0b; }
+
+/* セパレーター */
+hr { border-color: #2d2d4e !important; }
+
+/* 勝敗画面 */
+.result-box {
+    background: linear-gradient(135deg, #0f0a2e, #1e0a3e);
+    border: 3px solid #7c3aed;
+    border-radius: 20px;
+    padding: 36px;
+    text-align: center;
+    box-shadow: 0 0 40px rgba(124, 58, 237, 0.4);
+}
+.result-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.4rem;
+    margin-bottom: 12px;
+}
+.result-win { color: #fbbf24; text-shadow: 0 0 20px rgba(251, 191, 36, 0.6); }
+.result-lose { color: #f87171; text-shadow: 0 0 20px rgba(248, 113, 113, 0.6); }
+
+/* モード選択 */
+.mode-card {
+    background: #1a1a2e;
+    border: 2px solid #2d2d4e;
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    color: #e2e8f0;
 }
 
-.dot-filled-blue  { background: var(--neon-blue);  box-shadow: 0 0 6px var(--neon-blue); }
-.dot-filled-pink  { background: var(--neon-pink);  box-shadow: 0 0 6px var(--neon-pink); }
-
-.history-item {
-    padding: 0.4rem 0.8rem;
-    border-radius: 6px;
-    margin: 3px 0;
-    font-size: 0.78rem;
-    font-family: 'Orbitron', monospace;
-    letter-spacing: 0.05em;
+/* Streamlit デフォルト要素の色を上書き */
+label, .stMarkdown p, .stText {
+    color: #e2e8f0 !important;
 }
-
-.hist-player { background: rgba(0,245,255,0.08); color: var(--neon-blue); border-left: 3px solid var(--neon-blue); }
-.hist-ai     { background: rgba(255,0,110,0.08); color: var(--neon-pink); border-left: 3px solid var(--neon-pink); }
+.stSelectbox label, .stSlider label {
+    color: #c4c4e0 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 
-# ─── 問題生成 ─────────────────────────────────────────────────
-
-def generate_question(level: str) -> dict:
-    """ランダムに数学の問題を生成して返す。"""
-
-    middle_school = [
-        _q_add, _q_sub, _q_mul, _q_div_integer,
-        _q_linear_eq, _q_linear_eq2,
-        _q_ratio, _q_percentage, _q_percentage_change,
-        _q_power, _q_negative_calc,
-        _q_factoring_basic, _q_expand_basic,
-        _q_lcm, _q_gcd_q,
-        _q_area_rect, _q_area_triangle, _q_volume_box,
-        _q_pythagorean,
-        _q_fraction_add, _q_fraction_mul, _q_fraction_sub,
-        _q_proportion,
-        _q_speed_distance_time,
-        _q_number_pattern,
-        _q_angle_triangle, _q_angle_parallel,
-        _q_circle_area, _q_circle_circumference,
-        _q_simple_interest,
-        _q_abs_integer,
-        _q_prime_check,
-    ]
-    high_school = [
-        _q_quadratic, _q_factoring_hs, _q_quadratic_formula,
-        _q_sqrt_simplify, _q_sqrt_calc, _q_sqrt_rationalize,
-        _q_trig, _q_trig_identity,
-        _q_arithmetic_seq, _q_arithmetic_seq_sum,
-        _q_geometric_seq, _q_geometric_seq_sum,
-        _q_fraction_eq,
-        _q_abs_value,
-        _q_inequality, _q_inequality_abs,
-        _q_vertex_form, _q_parabola_intercept,
-        _q_combination, _q_permutation,
-        _q_probability_basic, _q_probability_two_dice,
-        _q_vector_dot, _q_vector_magnitude,
-        _q_remainder,
-        _q_complex_add, _q_complex_mul, _q_complex_abs,
-        _q_set_union, _q_set_intersection,
-        _q_binomial_coeff,
-    ]
-
-    if level == "中学":
-        pool = middle_school
-    elif level == "高校":
-        pool = high_school
-    else:  # 混合
-        pool = middle_school + high_school
-
-    fn = random.choice(pool)
-    return fn()
-
-
-# ═══════════════════════════════════════════
-#  中学レベル問題  (23種)
-# ═══════════════════════════════════════════
-
-def _q_add():
-    a, b = random.randint(10, 500), random.randint(10, 500)
-    return {"q": f"{a} + {b} = ?", "a": a + b, "hint": "足し算"}
-
-def _q_sub():
-    b = random.randint(10, 400)
-    a = b + random.randint(10, 400)
-    return {"q": f"{a} - {b} = ?", "a": a - b, "hint": "引き算"}
-
-def _q_mul():
-    a, b = random.randint(2, 50), random.randint(2, 50)
-    return {"q": f"{a} × {b} = ?", "a": a * b, "hint": "掛け算"}
-
-def _q_div_integer():
-    b   = random.randint(2, 12)
-    ans = random.randint(2, 30)
-    a   = b * ans
-    return {"q": f"{a} ÷ {b} = ?", "a": ans, "hint": "割り算"}
-
-def _q_negative_calc():
-    a = random.randint(-20, 20)
-    b = random.randint(-20, 20)
-    op = random.choice(['+', '-', '×'])
-    if op == '+':
-        return {"q": f"({a}) + ({b}) = ?", "a": a + b, "hint": "負の数の計算"}
-    elif op == '-':
-        return {"q": f"({a}) - ({b}) = ?", "a": a - b, "hint": "負の数の計算"}
-    else:
-        return {"q": f"({a}) × ({b}) = ?", "a": a * b, "hint": "負の数の計算"}
-
-def _q_linear_eq():
-    """ax + b = c"""
-    a = random.randint(2, 9)
-    x = random.randint(-10, 10)
-    b = random.randint(-15, 15)
-    c = a * x + b
-    sign = '+' if b >= 0 else '-'
-    return {"q": f"{a}x {sign} {abs(b)} = {c}  のとき x = ?", "a": x, "hint": "一次方程式"}
-
-def _q_linear_eq2():
-    """ax = b + cx 形式"""
-    x   = random.randint(1, 10)
-    a   = random.randint(3, 9)
-    c   = random.randint(1, a - 1)
-    b   = (a - c) * x
-    return {"q": f"{a}x = {b} + {c}x  のとき x = ?", "a": x, "hint": "一次方程式"}
-
-def _q_ratio():
-    a = random.randint(1, 5)
-    b = random.randint(1, 5)
-    total = (a + b) * random.randint(3, 20)
-    part  = total * a // (a + b)
-    return {"q": f"{total} を {a}:{b} に分けたとき、大きい方は？", "a": max(part, total - part), "hint": "比"}
-
-def _q_proportion():
-    """x/a = b/c → x = ?"""
-    b   = random.randint(2, 9)
-    c   = random.randint(2, 9)
-    x   = random.randint(2, 9)
-    a   = x * c // b if x * c % b == 0 else b
-    x   = a * b // c if a * b % c == 0 else a
-    # 整数になるよう再設定
-    c   = random.randint(2, 9)
-    b   = random.randint(2, 9)
-    x   = random.randint(1, 9)
-    a   = x * c // gcd(b, c) * (b // gcd(b, c))
-    # シンプルに: x/b = a/c => x = a*b/c  (整数保証)
-    c2  = random.randint(2, 6)
-    b2  = c2 * random.randint(1, 4)
-    a2  = random.randint(1, 8)
-    x2  = a2 * b2 // c2
-    return {"q": f"x / {b2} = {a2} / {c2}  のとき x = ?", "a": x2, "hint": "比例式"}
-
-def _q_percentage():
-    base = random.choice([100, 200, 400, 500, 800, 1000])
-    pct  = random.choice([10, 15, 20, 25, 30, 40, 50, 60, 75, 80])
-    ans  = base * pct // 100
-    return {"q": f"{base} の {pct}% は？", "a": ans, "hint": "百分率"}
-
-def _q_percentage_change():
-    base = random.choice([100, 200, 500, 1000])
-    pct  = random.choice([10, 20, 25, 30, 50])
-    kind = random.choice(['増', '減'])
-    if kind == '増':
-        ans = base * (100 + pct) // 100
-    else:
-        ans = base * (100 - pct) // 100
-    return {"q": f"{base} を {pct}% {kind}やすと？", "a": ans, "hint": "割合の変化"}
-
-def _q_power():
-    base = random.randint(2, 9)
-    exp  = random.randint(2, 4)
-    return {"q": f"{base}² = ?" if exp == 2 else f"{base}^{exp} = ?", "a": base ** exp, "hint": "累乗"}
-
-def _q_lcm():
-    a = random.randint(2, 12)
-    b = random.randint(2, 12)
-    from math import lcm
-    return {"q": f"{a} と {b} の最小公倍数は？", "a": lcm(a, b), "hint": "最小公倍数"}
-
-def _q_gcd_q():
-    g = random.randint(2, 9)
-    a = g * random.randint(2, 8)
-    b = g * random.randint(2, 8)
-    return {"q": f"{a} と {b} の最大公約数は？", "a": gcd(a, b), "hint": "最大公約数"}
-
-def _q_factoring_basic():
-    """x² + (a+b)x + ab = (x+a)(x+b)。積を答える。"""
-    a = random.randint(1, 8)
-    b = random.randint(1, 8)
-    s, p = a + b, a * b
-    return {"q": f"x² + {s}x + {p} = (x+□)(x+□)。□ の積は？", "a": p, "hint": "因数分解"}
-
-def _q_expand_basic():
-    """(x+a)(x+b) を展開したときの定数項。"""
-    a = random.randint(-8, 8)
-    b = random.randint(-8, 8)
-    c = a * b
-    sign_a = '+' if a >= 0 else '-'
-    sign_b = '+' if b >= 0 else '-'
-    return {"q": f"(x {sign_a} {abs(a)})(x {sign_b} {abs(b)}) の定数項は？", "a": c, "hint": "展開"}
-
-def _q_area_rect():
-    w, h = random.randint(3, 30), random.randint(3, 30)
-    return {"q": f"縦 {h}cm × 横 {w}cm の長方形の面積は？", "a": w * h, "hint": "面積"}
-
-def _q_area_triangle():
-    base = random.randint(3, 20)
-    h    = random.randint(2, 20) * 2  # 偶数で答えが整数に
-    ans  = base * h // 2
-    return {"q": f"底辺 {base}cm、高さ {h}cm の三角形の面積は？", "a": ans, "hint": "三角形の面積"}
-
-def _q_volume_box():
-    a, b, c = random.randint(2, 10), random.randint(2, 10), random.randint(2, 10)
-    return {"q": f"{a}cm × {b}cm × {c}cm の直方体の体積は？", "a": a * b * c, "hint": "体積"}
-
-def _q_pythagorean():
-    """ピタゴラス数。"""
-    triples = [(3,4,5),(5,12,13),(8,15,17),(7,24,25),(6,8,10),(9,12,15),(5,12,13)]
-    a, b, c = random.choice(triples)
-    kind = random.choice(['hyp', 'leg'])
-    if kind == 'hyp':
-        return {"q": f"直角三角形で 2 辺が {a}cm と {b}cm。斜辺は？", "a": c, "hint": "三平方の定理"}
-    else:
-        return {"q": f"直角三角形で斜辺 {c}cm、1辺 {a}cm。もう1辺は？", "a": b, "hint": "三平方の定理"}
-
-def _q_fraction_add():
-    """異分母の分数の足し算。"""
-    a_n, a_d = random.randint(1, 5), random.randint(2, 8)
-    b_n, b_d = random.randint(1, 5), random.randint(2, 8)
-    from math import lcm as _lcm
-    L   = _lcm(a_d, b_d)
-    num = a_n * (L // a_d) + b_n * (L // b_d)
-    g   = gcd(num, L)
-    rn, rd = num // g, L // g
-    ans = str(rn) if rd == 1 else f"{rn}/{rd}"
-    return {"q": f"{a_n}/{a_d} + {b_n}/{b_d} = ?  （既約分数で。整数なら整数で）", "a": ans, "hint": "分数の足し算"}
-
-def _q_fraction_mul():
-    a_n, a_d = random.randint(1, 6), random.randint(2, 8)
-    b_n, b_d = random.randint(1, 6), random.randint(2, 8)
-    num = a_n * b_n
-    den = a_d * b_d
-    g   = gcd(num, den)
-    rn, rd = num // g, den // g
-    ans = str(rn) if rd == 1 else f"{rn}/{rd}"
-    return {"q": f"{a_n}/{a_d} × {b_n}/{b_d} = ?  （既約分数で）", "a": ans, "hint": "分数の掛け算"}
-
-def _q_speed_distance_time():
-    """距離・速さ・時間。"""
-    kind = random.choice(['dist', 'time', 'speed'])
-    if kind == 'dist':
-        v = random.randint(2, 10) * 10
-        t = random.randint(1, 5)
-        return {"q": f"時速 {v}km で {t} 時間進んだ距離は？（km）", "a": v * t, "hint": "速さ・距離・時間"}
-    elif kind == 'time':
-        v   = random.randint(2, 8) * 10
-        d   = v * random.randint(1, 5)
-        return {"q": f"時速 {v}km で {d}km 進むのにかかる時間は？（時間）", "a": d // v, "hint": "速さ・距離・時間"}
-    else:
-        t = random.randint(2, 5)
-        d = random.randint(2, 10) * t * 10
-        return {"q": f"{d}km を {t} 時間で走った時速は？（km/h）", "a": d // t, "hint": "速さ・距離・時間"}
-
-def _q_number_pattern():
-    """等差数列の次の数。"""
-    start = random.randint(1, 20)
-    d     = random.randint(2, 8)
-    n     = 4
-    seq   = [start + d * i for i in range(n)]
-    return {"q": f"数列 {', '.join(map(str,seq))}, □ の □ は？", "a": seq[-1] + d, "hint": "数の規則"}
-
-def _q_fraction_sub():
-    """異分母の分数の引き算。"""
-    from math import lcm as _lcm
-    a_d = random.randint(2, 8)
-    b_d = random.randint(2, 8)
-    L   = _lcm(a_d, b_d)
-    # 引き算が正になるよう調整
-    a_n = random.randint(2, 6)
-    b_n = random.randint(1, 3)
-    num = a_n * (L // a_d) - b_n * (L // b_d)
-    if num <= 0:
-        a_n, b_n = b_n + 3, 1
-        num = a_n * (L // a_d) - b_n * (L // b_d)
-    g   = gcd(abs(num), L)
-    rn, rd = num // g, L // g
-    ans = str(rn) if rd == 1 else f"{rn}/{rd}"
-    return {"q": f"{a_n}/{a_d} - {b_n}/{b_d} = ?  （既約分数で）", "a": ans, "hint": "分数の引き算"}
-
-def _q_angle_triangle():
-    """三角形の内角の和。"""
-    a = random.randint(30, 80)
-    b = random.randint(30, 80)
-    c = 180 - a - b
-    if c <= 0:
-        a, b = 40, 60
-        c = 80
-    return {"q": f"三角形の 2 つの角が {a}°、{b}° のとき、残りの角は？", "a": c, "hint": "三角形の内角"}
-
-def _q_angle_parallel():
-    """平行線と錯角・同位角。"""
-    angle = random.randint(30, 150)
-    kind  = random.choice(["錯角", "同位角"])
-    return {"q": f"平行線で一方の角が {angle}°。{kind} は何度？", "a": angle, "hint": "平行線の角"}
-
-def _q_circle_area():
-    r = random.randint(1, 10)
-    # π を 3.14 で計算、整数のみ出題
-    ans = r * r  # πr² の r² だけ答えさせる
-    return {"q": f"半径 {r}cm の円の面積は何 π cm²？（π の係数を答えよ）", "a": ans, "hint": "円の面積"}
-
-def _q_circle_circumference():
-    r = random.randint(1, 10)
-    ans = 2 * r  # 2πr の係数
-    return {"q": f"半径 {r}cm の円の円周は何 π cm？（π の係数を答えよ）", "a": ans, "hint": "円周の長さ"}
-
-def _q_simple_interest():
-    """単利計算。"""
-    principal = random.choice([1000, 2000, 5000, 10000])
-    rate      = random.choice([2, 3, 4, 5])
-    years     = random.randint(1, 5)
-    interest  = principal * rate * years // 100
-    return {"q": f"{principal}円を年利{rate}%の単利で{years}年預けたときの利子は？（円）", "a": interest, "hint": "単利"}
-
-def _q_abs_integer():
-    a = random.randint(-20, 20)
-    b = random.randint(-20, 20)
-    return {"q": f"|{a}| + |{b}| = ?", "a": abs(a) + abs(b), "hint": "絶対値の計算"}
-
-def _q_prime_check():
-    """素数の問題。n 以下の素数の個数。"""
-    n      = random.choice([10, 20, 30])
-    primes = [x for x in range(2, n+1) if all(x % d != 0 for d in range(2, x))]
-    return {"q": f"{n} 以下の素数は何個？", "a": len(primes), "hint": "素数"}
-
-
-# ═══════════════════════════════════════════
-#  高校レベル問題  (追加分)
-# ═══════════════════════════════════════════
-
-def _q_quadratic_formula():
-    """解の公式を使う二次方程式。判別式 b²-4ac が完全平方数になるよう設定。"""
-    r1 = random.randint(-5, 5)
-    r2 = random.randint(-5, 5)
-    b  = -(r1 + r2)
-    c  = r1 * r2
-    sign_b = '+' if b >= 0 else '-'
-    sign_c = '+' if c >= 0 else '-'
-    return {
-        "q": f"x² {sign_b} {abs(b)}x {sign_c} {abs(c)} = 0 の解の和は？",
-        "a": r1 + r2,
-        "hint": "解と係数の関係"
-    }
-
-def _q_sqrt_rationalize():
-    """有理化。1/√n = √n/n → 分子は？"""
-    n   = random.choice([2, 3, 5, 6, 7])
-    return {"q": f"1/√{n} を有理化すると √{n}/□。□ は？", "a": n, "hint": "有理化"}
-
-def _q_geometric_seq_sum():
-    """等比数列の和 S = a(r^n - 1)/(r-1)。"""
-    a1 = random.randint(1, 3)
-    r  = random.randint(2, 3)
-    n  = random.randint(3, 5)
-    s  = a1 * (r**n - 1) // (r - 1)
-    return {"q": f"初項 {a1}、公比 {r} の等比数列の初項から第 {n} 項までの和は？", "a": s, "hint": "等比数列の和"}
-
-def _q_parabola_intercept():
-    """y = x² + bx + c の y 切片（x=0）。"""
-    b = random.randint(-5, 5)
-    c = random.randint(-10, 10)
-    sign_b = '+' if b >= 0 else '-'
-    sign_c = '+' if c >= 0 else '-'
-    return {"q": f"y = x² {sign_b} {abs(b)}x {sign_c} {abs(c)} の y 切片は？", "a": c, "hint": "放物線の切片"}
-
-def _q_inequality_abs():
-    """絶対値不等式 |x| < a の整数解の個数。"""
-    a = random.randint(2, 6)
-    cnt = 2 * a - 1  # -a+1 〜 a-1
-    return {"q": f"|x| < {a} を満たす整数 x の個数は？", "a": cnt, "hint": "絶対値不等式"}
-
-def _q_probability_two_dice():
-    """2個のサイコロの和の確率。"""
-    target = random.choice([7, 6, 8, 5, 9])
-    ways   = sum(1 for i in range(1,7) for j in range(1,7) if i+j==target)
-    g      = gcd(ways, 36)
-    ans    = f"{ways//g}/{36//g}"
-    return {"q": f"2個のサイコロを投げて和が {target} になる確率は？（既約分数で）", "a": ans, "hint": "確率"}
-
-def _q_vector_magnitude():
-    """ベクトルの大きさ（整数になるケースのみ）。"""
-    triples = [(3,4,5),(5,12,13),(8,15,17),(6,8,10)]
-    a, b, c = random.choice(triples)
-    return {"q": f"ベクトル ({a},{b}) の大きさは？", "a": c, "hint": "ベクトルの大きさ"}
-
-def _q_complex_add():
-    a, b = random.randint(-5, 5), random.randint(-5, 5)
-    c, d = random.randint(-5, 5), random.randint(-5, 5)
-    sign_b = '+' if b >= 0 else '-'
-    sign_d = '+' if d >= 0 else '-'
-    real = a + c
-    imag = b + d
-    sign_i = '+' if imag >= 0 else '-'
-    ans = f"{real}{sign_i}{abs(imag)}i" if imag != 0 else str(real)
-    return {"q": f"({a}{'+' if b>=0 else '-'}{abs(b)}i) + ({c}{'+' if d>=0 else '-'}{abs(d)}i) の実部は？", "a": real, "hint": "複素数の加法"}
-
-def _q_complex_mul():
-    """(a+bi)(c+di) の実部。"""
-    a, b = random.randint(-3, 3), random.randint(-3, 3)
-    c, d = random.randint(-3, 3), random.randint(-3, 3)
-    real = a*c - b*d
-    sign_b = '+' if b >= 0 else '-'
-    sign_d = '+' if d >= 0 else '-'
-    return {
-        "q": f"({a}{sign_b}{abs(b)}i)×({c}{sign_d}{abs(d)}i) の実部は？",
-        "a": real,
-        "hint": "複素数の乗法"
-    }
-
-def _q_complex_abs():
-    """|a+bi| = √(a²+b²)。整数になるケースのみ。"""
-    triples = [(3,4,5),(5,12,13),(6,8,10),(8,15,17)]
-    a, b, c = random.choice(triples)
-    sign_b = '+' if b >= 0 else '-'
-    return {"q": f"|{a}+{b}i| = ?", "a": c, "hint": "複素数の絶対値"}
-
-def _q_set_union():
-    """集合の要素数（和集合）。"""
-    total = random.randint(20, 50)
-    a     = random.randint(8, total - 5)
-    b     = random.randint(8, total - 5)
-    inter = random.randint(2, min(a, b) - 1)
-    union = a + b - inter
-    return {"q": f"|A|={a}、|B|={b}、|A∩B|={inter} のとき |A∪B| は？", "a": union, "hint": "集合の要素数"}
-
-def _q_set_intersection():
-    """包除原理の逆。"""
-    a     = random.randint(10, 30)
-    b     = random.randint(10, 30)
-    union = random.randint(max(a,b), a + b - 1)
-    inter = a + b - union
-    return {"q": f"|A|={a}、|B|={b}、|A∪B|={union} のとき |A∩B| は？", "a": inter, "hint": "集合の包除原理"}
-
-def _q_binomial_coeff():
-    """二項定理 (a+b)^n の特定項の係数。"""
-    from math import comb
-    n = random.randint(3, 5)
-    k = random.randint(1, n-1)
-    coeff = comb(n, k)
-    return {"q": f"(x+1)^{n} を展開したとき x^{n-k} の係数は？", "a": coeff, "hint": "二項定理"}
-
-def _q_quadratic():
-    n = random.randint(1, 10)
-    a = random.randint(1, 4)
-    b = a * n * n
-    return {"q": f"{a}x² = {b}  x > 0 のとき x = ?", "a": n, "hint": "二次方程式"}
-
-def _q_vertex_form():
-    """y = (x-p)² + q の頂点 x 座標。"""
-    p = random.randint(-8, 8)
-    q = random.randint(-10, 10)
-    sign_p = '-' if p >= 0 else '+'
-    return {"q": f"y = (x {sign_p} {abs(p)})² + {q} の頂点の x 座標は？", "a": p, "hint": "二次関数の頂点"}
-
-def _q_factoring_hs():
-    r1 = random.randint(-5, 5)
-    r2 = random.randint(-5, 5)
-    b  = -(r1 + r2)
-    c  = r1 * r2
-    sign_b = '+' if b >= 0 else '-'
-    sign_c = '+' if c >= 0 else '-'
-    larger = max(r1, r2)
-    return {"q": f"x² {sign_b} {abs(b)}x {sign_c} {abs(c)} = 0 の大きい方の解は？", "a": larger, "hint": "二次方程式の解"}
-
-def _q_sqrt_simplify():
-    n = random.randint(2, 8)
-    m = random.choice([2, 3, 5, 6, 7])
-    val = n * n * m
-    return {"q": f"√{val} = a√{m} のとき a = ?", "a": n, "hint": "平方根の簡略化"}
-
-def _q_sqrt_calc():
-    """√a × √b = √(ab)。"""
-    a = random.choice([2, 3, 5, 6, 7])
-    b = random.choice([2, 3, 5, 6, 7])
-    val = a * b
-    # 簡略化
-    g_sq = 1
-    for k in range(int(val**0.5), 0, -1):
-        if val % (k*k) == 0:
-            g_sq = k
-            break
-    coeff = g_sq
-    rem   = val // (g_sq * g_sq)
-    if rem == 1:
-        ans = str(coeff)
-        q   = f"√{a} × √{b} = ?  （整数で答えよ）"
-    else:
-        ans = str(coeff) if coeff > 1 else ""
-        q   = f"√{a} × √{b} = {coeff}√□ の □ は？"
-        ans = str(rem)
-    return {"q": q, "a": ans, "hint": "平方根の計算"}
-
-def _q_log():
-    base = random.choice([2, 3, 5, 10])
-    exp  = random.randint(1, 4)
-    val  = base ** exp
-    return {"q": f"log_{base}({val}) = ?", "a": exp, "hint": "対数"}
-
-def _q_log_product():
-    """log_a(b) + log_a(c) = log_a(bc)。"""
-    base = random.choice([2, 3, 10])
-    b    = random.randint(2, 6)
-    c    = random.randint(2, 6)
-    val  = b * c
-    exp  = 0
-    tmp  = val
-    while tmp % base == 0:
-        tmp //= base
-        exp += 1
-    if tmp == 1:
-        ans_val = exp
-        return {"q": f"log_{base}({b}) + log_{base}({c}) = ?", "a": ans_val, "hint": "対数の性質"}
-    # 整数にならない場合は別の問題を返す
-    b2, exp2 = base, random.randint(2, 4)
-    return {"q": f"log_{base}({base**exp2}) + log_{base}(1) = ?", "a": exp2, "hint": "対数の性質"}
-
-def _q_trig():
-    tbl = [
-        ("sin(30°)", "1/2"), ("sin(45°)", "√2/2"), ("sin(60°)", "√3/2"), ("sin(90°)", "1"),
-        ("cos(0°)", "1"),    ("cos(60°)", "1/2"),   ("cos(90°)", "0"),
-        ("tan(45°)", "1"),   ("tan(30°)", "√3/3"),  ("tan(60°)", "√3"),
-        ("sin(0°)", "0"),    ("cos(30°)", "√3/2"),  ("cos(45°)", "√2/2"),
-    ]
-    fn, ans = random.choice(tbl)
-    return {"q": f"{fn} = ?  （√を含む場合はそのまま入力。例: √3/2）", "a": ans, "hint": "三角関数"}
-
-def _q_trig_identity():
-    """sin²θ + cos²θ = 1 の応用。"""
-    # sin θ = a/b のとき cos²θ = ?
-    triples = [(3,5),(4,5),(5,13),(12,13),(8,17)]
-    s, h = random.choice(triples)
-    c    = int((h*h - s*s)**0.5)
-    return {"q": f"sin θ = {s}/{h} (0<θ<90°) のとき cos θ = ?  （分数で）", "a": f"{c}/{h}", "hint": "三角関数の相互関係"}
-
-def _q_arithmetic_seq():
-    a1 = random.randint(1, 15)
-    d  = random.randint(1, 8)
-    n  = random.randint(4, 12)
-    an = a1 + (n - 1) * d
-    return {"q": f"初項 {a1}、公差 {d} の等差数列の第 {n} 項は？", "a": an, "hint": "等差数列"}
-
-def _q_arithmetic_seq_sum():
-    """等差数列の和。"""
-    a1 = random.randint(1, 10)
-    d  = random.randint(1, 5)
-    n  = random.randint(4, 10)
-    s  = n * (2 * a1 + (n - 1) * d) // 2
-    return {"q": f"初項 {a1}、公差 {d} の等差数列の初項から第 {n} 項までの和は？", "a": s, "hint": "等差数列の和"}
-
-def _q_geometric_seq():
-    a1 = random.randint(1, 4)
-    r  = random.randint(2, 3)
-    n  = random.randint(2, 5)
-    an = a1 * (r ** (n - 1))
-    return {"q": f"初項 {a1}、公比 {r} の等比数列の第 {n} 項は？", "a": an, "hint": "等比数列"}
-
-def _q_fraction_eq():
-    """同分母の分数の足し算（既約）。"""
-    denom = random.randint(3, 12)
-    a     = random.randint(1, denom - 1)
-    b     = random.randint(1, denom - 1)
-    num   = a + b
-    g     = gcd(num, denom)
-    rn, rd = num // g, denom // g
-    ans   = str(rn) if rd == 1 else f"{rn}/{rd}"
-    return {"q": f"{a}/{denom} + {b}/{denom} = ?  （既約分数で）", "a": ans, "hint": "分数計算"}
-
-def _q_abs_value():
-    a = random.randint(-15, 15)
-    return {"q": f"|{a}| = ?", "a": abs(a), "hint": "絶対値"}
-
-def _q_inequality():
-    """ax + b > c の解（整数 x の最小値）。"""
-    a = random.randint(2, 6)
-    b = random.randint(-10, 10)
-    c = random.randint(-10, 20)
-    # ax > c - b → x > (c-b)/a
-    import math as _math
-    thresh = (c - b) / a
-    min_x  = _math.floor(thresh) + 1
-    sign_b = '+' if b >= 0 else '-'
-    return {"q": f"{a}x {sign_b} {abs(b)} > {c} を満たす最小の整数 x は？", "a": min_x, "hint": "一次不等式"}
-
-def _q_combination():
-    n = random.randint(4, 8)
-    r = random.randint(2, min(n-1, 4))
-    from math import comb
-    return {"q": f"C({n},{r}) = ?  （{n}個から{r}個選ぶ組合せ）", "a": comb(n, r), "hint": "組み合わせ"}
-
-def _q_permutation():
-    n = random.randint(4, 7)
-    r = random.randint(2, min(n, 3))
-    from math import perm
-    return {"q": f"P({n},{r}) = ?  （{n}個から{r}個並べる順列）", "a": perm(n, r), "hint": "順列"}
-
-def _q_probability_basic():
-    """サイコロ・コインの基本確率（分数）。"""
-    kind = random.choice(['dice_even','dice_ge','coin'])
-    if kind == 'dice_even':
-        return {"q": "サイコロを1回投げて偶数が出る確率は？（分数で）", "a": "1/2", "hint": "確率"}
-    elif kind == 'dice_ge':
-        k = random.randint(2, 5)
-        cnt = 6 - k + 1
-        g = gcd(cnt, 6)
-        ans = f"{cnt//g}/{6//g}"
-        return {"q": f"サイコロで {k} 以上が出る確率は？（既約分数で）", "a": ans, "hint": "確率"}
-    else:
-        return {"q": "コインを2回投げて両方表が出る確率は？（分数で）", "a": "1/4", "hint": "確率"}
-
-def _q_vector_dot():
-    """2次元ベクトルの内積。"""
-    a1, a2 = random.randint(-4, 4), random.randint(-4, 4)
-    b1, b2 = random.randint(-4, 4), random.randint(-4, 4)
-    dot = a1*b1 + a2*b2
-    return {"q": f"ベクトル ({a1},{a2})・({b1},{b2}) の内積は？", "a": dot, "hint": "ベクトルの内積"}
-
-def _q_complex_add():
-    """複素数の和の実部。"""
-    a, b = random.randint(-5, 5), random.randint(-5, 5)
-    c, d = random.randint(-5, 5), random.randint(-5, 5)
-    sign_b = '+' if b >= 0 else '-'
-    sign_d = '+' if d >= 0 else '-'
-    return {"q": f"({a} {sign_b} {abs(b)}i) + ({c} {sign_d} {abs(d)}i) の実部は？", "a": a + c, "hint": "複素数"}
-
-def _q_remainder():
-    """整式の余りの定理。p(a) を答える。"""
-    a    = random.randint(-4, 4)
-    c2   = random.randint(-3, 3)
-    c1   = random.randint(-5, 5)
-    c0   = random.randint(-5, 5)
-    val  = c2 * a * a + c1 * a + c0
-    sign1 = '+' if c1 >= 0 else '-'
-    sign0 = '+' if c0 >= 0 else '-'
-    return {
-        "q": f"p(x) = {c2}x² {sign1} {abs(c1)}x {sign0} {abs(c0)} を (x-({a})) で割った余りは？",
-        "a": val,
-        "hint": "余りの定理"
-    }
-
-
-# ─── AI の回答速度計算 ────────────────────────────────────────
-
-AI_SPEED = {
-    "よわい":     (18.0, 33.0),
-    "ふつう":     (11.0, 21.0),
-    "つよい":     ( 8.0, 15.0),
-    "さいきょう": ( 5.0,  9.0),
+# ─── 問題バンク ───────────────────────────────────────────────
+QUESTION_BANK = {
+    "かんたん": [
+        {
+            "q": "12 + 35 = ?",
+            "choices": ["45", "47", "48", "50"],
+            "answer": "47",
+            "explanation": "12 に 35 を足します。\n一の位: 2 + 5 = 7\n十の位: 1 + 3 = 4\n→ 47",
+        },
+        {
+            "q": "9 × 8 = ?",
+            "choices": ["63", "72", "81", "64"],
+            "answer": "72",
+            "explanation": "九九の計算です。\n9 × 8 = 72\n（9 × 9 = 81 の一つ前）",
+        },
+        {
+            "q": "100 − 37 = ?",
+            "choices": ["53", "63", "73", "67"],
+            "answer": "63",
+            "explanation": "100 − 37 を計算します。\n100 − 40 = 60\n60 + 3 = 63（37 ではなく 40 引いたので 3 戻す）",
+        },
+        {
+            "q": "56 ÷ 7 = ?",
+            "choices": ["6", "7", "8", "9"],
+            "answer": "8",
+            "explanation": "56 ÷ 7 = ?\n7 × 8 = 56 なので、答えは 8 です。",
+        },
+        {
+            "q": "3² = ?",
+            "choices": ["6", "8", "9", "12"],
+            "answer": "9",
+            "explanation": "3² は「3 の 2 乗」= 3 × 3 = 9",
+        },
+        {
+            "q": "√25 = ?",
+            "choices": ["4", "5", "6", "7"],
+            "answer": "5",
+            "explanation": "√25 は「25 の平方根」\n5 × 5 = 25 なので √25 = 5",
+        },
+        {
+            "q": "0.5 × 0.4 = ?",
+            "choices": ["0.09", "0.2", "0.02", "2"],
+            "answer": "0.2",
+            "explanation": "小数の掛け算：\n0.5 × 0.4 = 5/10 × 4/10 = 20/100 = 0.2",
+        },
+        {
+            "q": "2/3 + 1/6 = ?",
+            "choices": ["3/9", "5/6", "1/2", "3/6"],
+            "answer": "5/6",
+            "explanation": "通分します（公倍数 = 6）：\n2/3 = 4/6\n4/6 + 1/6 = 5/6",
+        },
+    ],
+    "ふつう": [
+        {
+            "q": "x² − 5x + 6 = 0 を解け",
+            "choices": ["x=1,6", "x=2,3", "x=−2,−3", "x=3,4"],
+            "answer": "x=2,3",
+            "explanation": "因数分解を使います。\n(x − 2)(x − 3) = 0\n→ x = 2 または x = 3\n\n【確認】積が +6、和が −5 になる 2 数は −2, −3 ではなく 2, 3 です（符号に注意）。",
+        },
+        {
+            "q": "2x + 3y = 12, x − y = 1 のとき x = ?",
+            "choices": ["x=2", "x=3", "x=4", "x=5"],
+            "answer": "x=3",
+            "explanation": "連立方程式：\n② x = y + 1 を①に代入\n2(y+1) + 3y = 12\n5y = 10 → y = 2\nx = y + 1 = 3",
+        },
+        {
+            "q": "log₂ 8 = ?",
+            "choices": ["2", "3", "4", "8"],
+            "answer": "3",
+            "explanation": "log₂ 8 は「2 を何乗したら 8 になるか」\n2³ = 8 なので log₂ 8 = 3",
+        },
+        {
+            "q": "sin(30°) = ?",
+            "choices": ["√3/2", "1/√2", "1/2", "√3/3"],
+            "answer": "1/2",
+            "explanation": "三角比の基本値：\nsin(30°) = 1/2\ncos(30°) = √3/2\ntan(30°) = 1/√3\n\n30-60-90 の三角形で覚えましょう！",
+        },
+        {
+            "q": "等差数列 3, 7, 11, … の第10項は？",
+            "choices": ["39", "41", "43", "37"],
+            "answer": "39",
+            "explanation": "等差数列の一般項：aₙ = a₁ + (n−1)d\n初項 a₁ = 3、公差 d = 4\na₁₀ = 3 + 9 × 4 = 3 + 36 = 39",
+        },
+        {
+            "q": "f(x) = 3x² の導関数 f'(x) は？",
+            "choices": ["3x", "6x", "x²", "6x²"],
+            "answer": "6x",
+            "explanation": "べき乗の微分：d/dx[xⁿ] = n・xⁿ⁻¹\nf(x) = 3x²\nf'(x) = 3 × 2x¹ = 6x",
+        },
+        {
+            "q": "nCr の計算：₅C₂ = ?",
+            "choices": ["5", "10", "15", "20"],
+            "answer": "10",
+            "explanation": "₅C₂ = 5! / (2! × 3!)\n= (5 × 4) / (2 × 1)\n= 20 / 2 = 10\n\n「5 人から 2 人を選ぶ組み合わせ」と考えても OK！",
+        },
+        {
+            "q": "∫₀² 2x dx = ?",
+            "choices": ["2", "4", "6", "8"],
+            "answer": "4",
+            "explanation": "∫2x dx = x²+ C\n→ [x²]₀² = 2² − 0² = 4",
+        },
+    ],
+    "むずかしい": [
+        {
+            "q": "lim(n→∞) (1 + 1/n)ⁿ = ?",
+            "choices": ["1", "2", "e", "π"],
+            "answer": "e",
+            "explanation": "ネイピア数 e の定義そのものです。\ne ≈ 2.71828…\nこの極限は自然対数の底 e に収束します。\nオイラー数とも呼ばれ、自然対数・指数関数の基本です。",
+        },
+        {
+            "q": "複素数 i⁴ = ?",
+            "choices": ["i", "−1", "1", "−i"],
+            "answer": "1",
+            "explanation": "虚数単位 i の累乗：\ni¹ = i\ni² = −1\ni³ = −i\ni⁴ = (i²)² = (−1)² = 1\n4 の倍数乗は常に 1 になります。",
+        },
+        {
+            "q": "ベクトル (1,2) と (3,4) の内積は？",
+            "choices": ["5", "10", "11", "14"],
+            "answer": "11",
+            "explanation": "内積の公式：a⃗ · b⃗ = a₁b₁ + a₂b₂\n= 1×3 + 2×4\n= 3 + 8\n= 11",
+        },
+        {
+            "q": "行列 [[1,2],[3,4]] の行列式は？",
+            "choices": ["−2", "−1", "2", "10"],
+            "answer": "−2",
+            "explanation": "2×2 行列の行列式：det = ad − bc\n[[a,b],[c,d]] の場合\n= 1×4 − 2×3\n= 4 − 6\n= −2",
+        },
+        {
+            "q": "∫₋∞^∞ e^(−x²) dx = ?",
+            "choices": ["1", "√π", "π", "2"],
+            "answer": "√π",
+            "explanation": "ガウス積分の有名な結果です。\n∫₋∞^∞ e^(−x²) dx = √π\n極座標変換（x²+y²=r²）を使った 2 重積分で証明できます。\n確率・統計の正規分布でも本質的な役割を果たします。",
+        },
+        {
+            "q": "フィボナッチ数列 1,1,2,3,5,… の第8項は？",
+            "choices": ["13", "21", "34", "8"],
+            "answer": "21",
+            "explanation": "フィボナッチ数列：aₙ = aₙ₋₁ + aₙ₋₂\n1, 1, 2, 3, 5, 8, 13, 21\n数えてみると第8項は 21 です。",
+        },
+    ],
 }
 
+DIFFICULTIES = ["かんたん", "ふつう", "むずかしい"]
+DAMAGE_MAP = {"かんたん": 15, "ふつう": 25, "むずかしい": 40}
+ENEMY_DAMAGE_MAP = {"かんたん": 10, "ふつう": 18, "むずかしい": 28}
 
-def ai_answer_time(difficulty: str) -> float:
-    lo, hi = AI_SPEED[difficulty]
-    return random.uniform(lo, hi)
-
+ENEMIES = [
+    {"name": "スライム", "emoji": "🟢", "hp": 60},
+    {"name": "ゴブリン", "emoji": "👺", "hp": 80},
+    {"name": "ドラゴン", "emoji": "🐉", "hp": 120},
+    {"name": "魔王", "emoji": "💀", "hp": 150},
+]
 
 # ─── セッション初期化 ─────────────────────────────────────────
-
-def init_state():
+def init_session():
     defaults = {
-        "phase": "menu",       # menu | playing | result
-        "player_score": 0,
-        "ai_score": 0,
-        "current_q": None,
-        "q_start": None,
-        "ai_answer_at": None,
-        "answered": False,
-        "last_result": None,   # "player" | "ai" | "wrong"
-        "history": [],
+        "screen": "menu",         # menu / battle / result
         "difficulty": "ふつう",
-        "level": "混合",
-        "round_num": 0,
-        "answer_input_key": 0,
+        "player_hp": 100,
+        "enemy_hp": 0,
+        "enemy_max_hp": 0,
+        "enemy": None,
+        "score": 0,
+        "round": 0,
+        "max_rounds": 8,
+        "combo": 0,
+        "max_combo": 0,
+        "question": None,
+        "choices": [],
+        "answered": False,
+        "last_correct": None,
+        "last_damage": 0,
+        "battle_log": [],
+        "wrong_review": [],     # 間違えた問題の記録
+        "enemy_index": 0,
+        "show_next_btn": False,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
 
-init_state()
-
+init_session()
 
 # ─── ヘルパー ─────────────────────────────────────────────────
+def add_log(msg: str):
+    st.session_state.battle_log.insert(0, msg)
+    if len(st.session_state.battle_log) > 8:
+        st.session_state.battle_log.pop()
 
-def start_game():
-    st.session_state.phase         = "playing"
-    st.session_state.player_score  = 0
-    st.session_state.ai_score      = 0
-    st.session_state.history       = []
-    st.session_state.round_num     = 0
-    next_question()
+def pick_question():
+    pool = QUESTION_BANK[st.session_state.difficulty]
+    q = random.choice(pool)
+    choices = q["choices"][:]
+    random.shuffle(choices)
+    st.session_state.question = q
+    st.session_state.choices = choices
+    st.session_state.answered = False
+    st.session_state.last_correct = None
+    st.session_state.show_next_btn = False
 
+def start_battle():
+    st.session_state.screen = "battle"
+    st.session_state.player_hp = 100
+    enemy = ENEMIES[st.session_state.enemy_index].copy()
+    st.session_state.enemy = enemy
+    st.session_state.enemy_hp = enemy["hp"]
+    st.session_state.enemy_max_hp = enemy["hp"]
+    st.session_state.round = 0
+    st.session_state.score = 0
+    st.session_state.combo = 0
+    st.session_state.max_combo = 0
+    st.session_state.battle_log = []
+    st.session_state.wrong_review = []
+    pick_question()
 
-def next_question():
-    q = generate_question(st.session_state.level)
-    st.session_state.current_q      = q
-    st.session_state.q_start        = time.time()
-    st.session_state.ai_answer_at   = time.time() + ai_answer_time(st.session_state.difficulty)
-    st.session_state.answered       = False
-    st.session_state.last_result    = None
-    st.session_state.round_num     += 1
-    st.session_state.answer_input_key += 1
-
-
-def check_answer(user_input: str):
+def answer(choice: str):
     if st.session_state.answered:
         return
-    now = time.time()
-    correct_val = st.session_state.current_q["a"]
-
-    # 正規化
-    def normalize(v):
-        try:
-            return float(str(v).strip())
-        except Exception:
-            return str(v).strip()
-
-    user_norm    = normalize(user_input)
-    correct_norm = normalize(correct_val)
-
-    if user_norm == correct_norm or (
-        isinstance(user_norm, float) and isinstance(correct_norm, float)
-        and abs(user_norm - correct_norm) < 0.01
-    ):
-        st.session_state.player_score += 1
-        st.session_state.last_result   = "player"
-        st.session_state.history.append(
-            f"Q{st.session_state.round_num}: あなたが先取！ 答え={correct_val}"
-        )
-    else:
-        # 不正解 → AIにポイント
-        st.session_state.ai_score    += 1
-        st.session_state.last_result  = "wrong"
-        st.session_state.history.append(
-            f"Q{st.session_state.round_num}: 不正解… 正解={correct_val}（AIに+1）"
-        )
-
     st.session_state.answered = True
+    q = st.session_state.question
+    correct = (choice == q["answer"])
+    st.session_state.last_correct = correct
+    diff = st.session_state.difficulty
+
+    if correct:
+        st.session_state.combo += 1
+        st.session_state.max_combo = max(st.session_state.max_combo, st.session_state.combo)
+        dmg = DAMAGE_MAP[diff]
+        combo_bonus = min(st.session_state.combo - 1, 3) * 5
+        dmg += combo_bonus
+        st.session_state.enemy_hp = max(0, st.session_state.enemy_hp - dmg)
+        st.session_state.score += (10 + combo_bonus)
+        st.session_state.last_damage = dmg
+        combo_str = f" ✨ {st.session_state.combo}連続コンボ！" if st.session_state.combo >= 2 else ""
+        add_log(f"⚔️ 正解！ {dmg}ダメージ{combo_str}")
+    else:
+        st.session_state.combo = 0
+        e_dmg = ENEMY_DAMAGE_MAP[diff]
+        st.session_state.player_hp = max(0, st.session_state.player_hp - e_dmg)
+        st.session_state.last_damage = e_dmg
+        add_log(f"💥 不正解… {st.session_state.enemy['name']}に {e_dmg}ダメージ受けた")
+        # 間違えた問題を記録
+        st.session_state.wrong_review.append({
+            "q": q["q"],
+            "your": choice,
+            "correct": q["answer"],
+            "explanation": q["explanation"],
+            "round": st.session_state.round + 1,
+        })
+
+    st.session_state.round += 1
+    st.session_state.show_next_btn = True
 
 
-def tick_ai():
-    """AIの回答時刻が来たら AI が正解を取る。"""
+# ─── 画面: メニュー ───────────────────────────────────────────
+if st.session_state.screen == "menu":
+    st.markdown("<h1>⚔️ 数学バトル</h1>", unsafe_allow_html=True)
+    st.markdown(
+        "<p style='text-align:center;color:#a0a0c0;font-size:1.0rem;'>問題を解いて敵を倒せ！間違えたら解説でしっかり学ぼう</p>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**🗡 難易度**")
+        diff = st.selectbox("", DIFFICULTIES, index=DIFFICULTIES.index(st.session_state.difficulty), label_visibility="collapsed")
+        st.session_state.difficulty = diff
+
+    with col2:
+        st.markdown("**👾 対戦相手**")
+        enemy_names = [f"{e['emoji']} {e['name']} (HP {e['hp']})" for e in ENEMIES]
+        e_idx = st.selectbox("", enemy_names, index=st.session_state.enemy_index, label_visibility="collapsed")
+        st.session_state.enemy_index = enemy_names.index(e_idx)
+
+    st.markdown("")
+
+    diff_info = {
+        "かんたん": ("🟢 かんたん", "基本の四則演算・分数・平方根\nダメージ 15 / 被ダメージ 10"),
+        "ふつう":   ("🟡 ふつう",   "方程式・対数・三角比・微積分\nダメージ 25 / 被ダメージ 18"),
+        "むずかしい": ("🔴 むずかしい", "極限・複素数・行列・ガウス積分\nダメージ 40 / 被ダメージ 28"),
+    }
+    info = diff_info[st.session_state.difficulty]
+    st.markdown(f"""
+    <div style="background:#1a1a2e;border:1px solid #4f46e5;border-radius:12px;padding:16px 20px;margin-bottom:1.2rem;">
+        <div style="font-weight:900;font-size:1.05rem;color:#a5b4fc;margin-bottom:6px;">{info[0]}</div>
+        <div style="color:#c4c4e0;font-size:0.9rem;white-space:pre-line;">{info[1]}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.button("🚀 バトルスタート！", use_container_width=True):
+        start_battle()
+        st.rerun()
+
+    st.markdown("""
+    <div style="color:#606080;font-size:0.8rem;text-align:center;margin-top:0.5rem;">
+    正解でコンボを繋げるとボーナスダメージ！間違えた問題は終了後に解説で確認できます。
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ─── 画面: バトル ─────────────────────────────────────────────
+elif st.session_state.screen == "battle":
+    enemy = st.session_state.enemy
+    p_hp = st.session_state.player_hp
+    e_hp = st.session_state.enemy_hp
+    e_max = st.session_state.enemy_max_hp
+
+    # ゲームオーバー or クリア 判定
+    if p_hp <= 0 or e_hp <= 0 or st.session_state.round >= st.session_state.max_rounds:
+        st.session_state.screen = "result"
+        st.rerun()
+
+    # ── HP バー ──
+    p_pct = max(0, p_hp / 100 * 100)
+    e_pct = max(0, e_hp / e_max * 100)
+    st.markdown(f"""
+    <div class="hp-row">
+      <div class="hp-box">
+        <div class="hp-label">あなた</div>
+        <div class="hp-name">🧙 勇者</div>
+        <div class="hp-bar-bg"><div class="hp-bar-fill-player" style="width:{p_pct}%"></div></div>
+        <div class="hp-text">{p_hp} / 100 HP</div>
+      </div>
+      <div style="font-size:1.8rem;color:#6366f1;font-weight:900;">VS</div>
+      <div class="hp-box">
+        <div class="hp-label">てき</div>
+        <div class="hp-name">{enemy['emoji']} {enemy['name']}</div>
+        <div class="hp-bar-bg"><div class="hp-bar-fill-enemy" style="width:{e_pct}%"></div></div>
+        <div class="hp-text">{e_hp} / {e_max} HP</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── ステータス ──
+    combo_html = f'<span class="badge badge-combo">🔥 {st.session_state.combo}コンボ</span>' if st.session_state.combo >= 2 else ""
+    st.markdown(f"""
+    <div style="margin-bottom:0.6rem;">
+        <span class="badge badge-round">第 {st.session_state.round + 1} / {st.session_state.max_rounds} 問</span>
+        <span class="badge badge-score">⭐ {st.session_state.score} pt</span>
+        {combo_html}
+    </div>
+    """, unsafe_allow_html=True)
+
+    q = st.session_state.question
+
+    # ── 問題カード ──
+    diff_icon = {"かんたん": "🟢", "ふつう": "🟡", "むずかしい": "🔴"}
+    st.markdown(f"""
+    <div class="question-card">
+        <div class="question-level">{diff_icon[st.session_state.difficulty]} {st.session_state.difficulty}</div>
+        <div class="question-text">{q['q']}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── 解説表示（回答後） ──
     if st.session_state.answered:
-        return
-    if time.time() >= st.session_state.ai_answer_at:
-        st.session_state.ai_score    += 1
-        st.session_state.last_result  = "ai"
-        correct_val = st.session_state.current_q["a"]
-        st.session_state.history.append(
-            f"Q{st.session_state.round_num}: AIが先取… 答え={correct_val}"
-        )
-        st.session_state.answered = True
-
-
-def dots_html(score, color_class):
-    dots = ""
-    for i in range(10):
-        if i < score:
-            dots += f'<span class="dot {color_class}"></span>'
-        else:
-            dots += '<span class="dot"></span>'
-    return f'<div class="progress-dots">{dots}</div>'
-
-
-# ─── 画面描画 ─────────────────────────────────────────────────
-
-# === メニュー画面 ===
-if st.session_state.phase == "menu":
-    st.markdown('<p class="title-main">MATH BATTLE</p>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">⚡ AI vs HUMAN ⚡</p>', unsafe_allow_html=True)
-
-    col_l, col_c, col_r = st.columns([1, 2, 1])
-    with col_c:
-        st.markdown("### 難易度を選択")
-        difficulty = st.radio(
-            "AI の強さ",
-            ["よわい", "ふつう", "つよい", "さいきょう"],
-            index=["よわい", "ふつう", "つよい", "さいきょう"].index(
-                st.session_state.difficulty
-            ),
-            horizontal=True,
-            label_visibility="collapsed",
-        )
-        st.session_state.difficulty = difficulty
-
-        speed_desc = {
-            "よわい":     "🐢 AIが答えるまで 18〜33 秒",
-            "ふつう":     "🐇 AIが答えるまで 11〜21 秒",
-            "つよい":     "🦅 AIが答えるまで 8〜15 秒",
-            "さいきょう": "⚡ AIが答えるまで 5〜9 秒",
-        }
-        st.caption(speed_desc[difficulty])
-
-        st.markdown("---")
-        st.markdown("### 問題レベル")
-        level = st.radio(
-            "レベル",
-            ["中学", "高校", "混合"],
-            index=["中学", "高校", "混合"].index(st.session_state.level),
-            horizontal=True,
-            label_visibility="collapsed",
-        )
-        st.session_state.level = level
-
-        st.markdown("---")
-        st.markdown("""
-        <div style='background:rgba(0,245,255,0.05); border:1px solid rgba(0,245,255,0.2);
-             border-radius:10px; padding:1rem; font-size:0.85rem; color:rgba(224,224,255,0.7); margin-bottom:1rem;'>
-        🎮 ルール<br>
-        ・ランダムに式が出題されます<br>
-        ・先に正解した方に 1 ポイント<br>
-        ・先に <strong>10 点</strong> 取った方が勝ち！<br>
-        ・不正解でもペナルティなし
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("⚡ ゲームスタート", use_container_width=True, type="primary"):
-            start_game()
-            st.rerun()
-
-
-# === ゲームプレイ画面 ===
-elif st.session_state.phase == "playing":
-
-    # AI タイマーチェック
-    tick_ai()
-
-    # 勝利判定
-    if st.session_state.player_score >= 10:
-        st.session_state.phase = "result"
-        st.session_state.winner = "player"
-        st.rerun()
-    if st.session_state.ai_score >= 10:
-        st.session_state.phase = "result"
-        st.session_state.winner = "ai"
-        st.rerun()
-
-    # ── スコアボード ──
-    c1, c2, c3 = st.columns([5, 2, 5])
-    with c1:
-        st.markdown(f"""
-        <div class="score-panel">
-            <div class="score-label">👤 PLAYER</div>
-            <div class="score-value score-player">{st.session_state.player_score}</div>
-            {dots_html(st.session_state.player_score, "dot-filled-blue")}
-        </div>
-        """, unsafe_allow_html=True)
-    with c2:
-        st.markdown('<div class="score-vs">VS</div>', unsafe_allow_html=True)
-    with c3:
-        st.markdown(f"""
-        <div class="score-panel">
-            <div class="score-label">🤖 AI [{st.session_state.difficulty}]</div>
-            <div class="score-value score-ai">{st.session_state.ai_score}</div>
-            {dots_html(st.session_state.ai_score, "dot-filled-pink")}
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("")
-
-    # ── 問題表示 ──
-    q = st.session_state.current_q
-    if q:
-        elapsed = time.time() - st.session_state.q_start
-        ai_remaining = max(0.0, st.session_state.ai_answer_at - time.time())
-        bar_pct = max(0.0, min(100.0, (ai_remaining / (st.session_state.ai_answer_at - st.session_state.q_start)) * 100))
-
-        st.markdown(f"""
-        <div class="question-box">
-            <div class="question-label">Q {st.session_state.round_num} ／ {q['hint']}</div>
-            <div class="question-text">{q['q']}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # タイマーバー（AIが答えるまでの時間）
-        if not st.session_state.answered:
+        correct = st.session_state.last_correct
+        if correct:
             st.markdown(f"""
-            <div style='font-size:0.75rem; color:rgba(224,224,255,0.4); font-family:Orbitron,monospace;
-                 letter-spacing:0.2em; margin-bottom:4px;'>AI が答えるまで {ai_remaining:.1f}s</div>
-            <div class="timer-bar-container">
-                <div class="timer-bar" style="width:{bar_pct}%"></div>
+            <div class="explanation-box explanation-correct">
+                <div class="explanation-title">✅ 正解！ {st.session_state.last_damage}ダメージ！</div>
+                <div class="explanation-detail">💡 解説：<br>{q['explanation'].replace(chr(10), '<br>')}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="explanation-box explanation-wrong">
+                <div class="explanation-title">❌ 不正解… 正解は「{q['answer']}」でした</div>
+                <div class="explanation-detail">💡 解説：<br>{q['explanation'].replace(chr(10), '<br>')}</div>
             </div>
             """, unsafe_allow_html=True)
 
-    # ── 入力エリア ──
-    left_col, right_col = st.columns([3, 1])
-
+    # ── 選択肢 ──
     if not st.session_state.answered:
-        with left_col:
-            answer = st.text_input(
-                "答えを入力",
-                key=f"ans_{st.session_state.answer_input_key}",
-                placeholder="数値を入力して Enter",
-                label_visibility="collapsed",
-            )
-        with right_col:
-            if st.button("✅ 答える", use_container_width=True, type="primary"):
-                if answer.strip():
-                    check_answer(answer.strip())
+        cols = st.columns(2)
+        for i, c in enumerate(st.session_state.choices):
+            with cols[i % 2]:
+                if st.button(c, key=f"choice_{i}", use_container_width=True):
+                    answer(c)
                     st.rerun()
-
-        if answer and answer.strip():
-            check_answer(answer.strip())
-            if st.session_state.answered:
+    else:
+        if st.session_state.show_next_btn:
+            if st.button("▶️ 次の問題へ", use_container_width=True):
+                if st.session_state.player_hp <= 0 or st.session_state.enemy_hp <= 0 or st.session_state.round >= st.session_state.max_rounds:
+                    st.session_state.screen = "result"
+                else:
+                    pick_question()
                 st.rerun()
 
-    # ── 結果表示 ──
-    if st.session_state.answered and st.session_state.last_result is not None:
-        result = st.session_state.last_result
-        if result == "player":
-            st.markdown('<div class="result-correct">⚡ 正解！ あなたが先取しました！ +1</div>', unsafe_allow_html=True)
-        elif result == "ai":
-            st.markdown(f'<div class="result-wrong">🤖 AIが先取… 正解は {q["a"]} でした（AI +1）</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="result-wrong">❌ 不正解… 正解は {q["a"]} でした（AI +1）</div>', unsafe_allow_html=True)
+    # ── バトルログ ──
+    if st.session_state.battle_log:
+        st.markdown("---")
+        log_html = "<br>".join(st.session_state.battle_log)
+        st.markdown(f'<div class="battle-log">{log_html}</div>', unsafe_allow_html=True)
 
-        st.markdown("")
-        if st.button("▶ 次の問題へ", use_container_width=True):
-            next_question()
-            st.rerun()
-
-    # ── 履歴サイドバー ──
-    with st.expander("📋 回答履歴", expanded=False):
-        for h in reversed(st.session_state.history[-20:]):
-            if "あなた" in h:
-                st.markdown(f'<div class="history-item hist-player">{h}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="history-item hist-ai">{h}</div>', unsafe_allow_html=True)
-
-    # 自動リロード（AIタイマー用）
-    if not st.session_state.answered:
-        time.sleep(0.3)
+    # ── 降参ボタン ──
+    st.markdown("")
+    if st.button("🏳️ 降参してメニューに戻る", use_container_width=False):
+        st.session_state.screen = "menu"
         st.rerun()
 
 
-# === リザルト画面 ===
-elif st.session_state.phase == "result":
-    winner = st.session_state.get("winner", "unknown")
+# ─── 画面: リザルト ───────────────────────────────────────────
+elif st.session_state.screen == "result":
+    p_hp = st.session_state.player_hp
+    e_hp = st.session_state.enemy_hp
+    enemy = st.session_state.enemy
 
-    st.markdown('<p class="title-main">MATH BATTLE</p>', unsafe_allow_html=True)
+    if p_hp <= 0:
+        outcome = "lose"
+        title = "💀 GAME OVER"
+        sub = f"{enemy['emoji']} {enemy['name']} に倒された…"
+    elif e_hp <= 0:
+        outcome = "win"
+        title = "🏆 VICTORY！"
+        sub = f"{enemy['emoji']} {enemy['name']} を倒した！"
+    else:
+        outcome = "win" if st.session_state.score >= 50 else "lose"
+        title = "⚔️ バトル終了" 
+        sub = f"全 {st.session_state.max_rounds} 問終了"
+
+    css_cls = "result-win" if outcome == "win" else "result-lose"
+    st.markdown(f"""
+    <div class="result-box">
+        <div class="result-title {css_cls}">{title}</div>
+        <div style="color:#c4c4e0;font-size:1.05rem;margin-bottom:16px;">{sub}</div>
+        <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-bottom:8px;">
+            <div style="background:#1a1a2e;border-radius:10px;padding:12px 20px;">
+                <div style="color:#818cf8;font-size:0.75rem;font-weight:700;text-transform:uppercase;">スコア</div>
+                <div style="color:#f8f9ff;font-size:1.8rem;font-weight:900;">⭐ {st.session_state.score}</div>
+            </div>
+            <div style="background:#1a1a2e;border-radius:10px;padding:12px 20px;">
+                <div style="color:#818cf8;font-size:0.75rem;font-weight:700;text-transform:uppercase;">最大コンボ</div>
+                <div style="color:#fbbf24;font-size:1.8rem;font-weight:900;">🔥 {st.session_state.max_combo}</div>
+            </div>
+            <div style="background:#1a1a2e;border-radius:10px;padding:12px 20px;">
+                <div style="color:#818cf8;font-size:0.75rem;font-weight:700;text-transform:uppercase;">残りHP</div>
+                <div style="color:#34d399;font-size:1.8rem;font-weight:900;">❤️ {max(0, p_hp)}</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── 間違えた問題の復習 ──
+    wrongs = st.session_state.wrong_review
+    if wrongs:
+        st.markdown("")
+        st.markdown(f"""
+        <div style="background:#1a1a2e;border:2px solid #dc2626;border-radius:14px;padding:20px 24px;">
+            <div style="font-size:1.15rem;font-weight:900;color:#fca5a5;margin-bottom:4px;">
+                📚 間違えた問題の復習 ({len(wrongs)}問)
+            </div>
+            <div style="color:#a0a0c0;font-size:0.85rem;">しっかり確認してマスターしよう！</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        for i, w in enumerate(wrongs):
+            with st.expander(f"❌ 第{w['round']}問：{w['q']}", expanded=(i == 0)):
+                st.markdown(f"""
+                <div style="margin-bottom:8px;">
+                    <span style="background:#2d0a0a;color:#fca5a5;border-radius:6px;padding:3px 10px;font-size:0.85rem;font-weight:700;">
+                        あなたの答え：{w['your']}
+                    </span>
+                    &nbsp;→&nbsp;
+                    <span style="background:#052e16;color:#86efac;border-radius:6px;padding:3px 10px;font-size:0.85rem;font-weight:700;">
+                        正解：{w['correct']}
+                    </span>
+                </div>
+                <div style="background:#0f0f1e;border-left:3px solid #6366f1;border-radius:0 8px 8px 0;padding:12px 16px;color:#d4d4f0;font-size:0.95rem;line-height:1.85;white-space:pre-wrap;">{w['explanation']}</div>
+                """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background:#052e16;border:2px solid #16a34a;border-radius:14px;padding:16px 20px;margin-top:1rem;text-align:center;">
+            <span style="color:#86efac;font-size:1.1rem;font-weight:700;">🎉 全問正解！完璧なバトルでした！</span>
+        </div>
+        """, unsafe_allow_html=True)
+
     st.markdown("")
-
-    col_l, col_c, col_r = st.columns([1, 3, 1])
-    with col_c:
-        if winner == "player":
-            st.markdown(f"""
-            <div class="win-banner">
-                <div class="banner-title" style="color:var(--neon-blue);">🏆 WIN!</div>
-                <div style="font-family:Orbitron,monospace; font-size:1.2rem; color:var(--neon-yellow); margin:0.5rem 0;">
-                    おめでとうございます！
-                </div>
-                <div style="font-size:4rem; margin:1rem 0;">
-                    <span style="color:var(--neon-blue);">{st.session_state.player_score}</span>
-                    <span style="color:rgba(255,255,255,0.3); font-size:2rem;"> — </span>
-                    <span style="color:var(--neon-pink);">{st.session_state.ai_score}</span>
-                </div>
-                <div style="font-family:Orbitron,monospace; font-size:0.7rem; letter-spacing:0.2em; 
-                     color:rgba(224,224,255,0.5);">PLAYER vs AI [{st.session_state.difficulty}]</div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div class="lose-banner">
-                <div class="banner-title" style="color:var(--neon-pink);">💀 LOSE...</div>
-                <div style="font-family:Orbitron,monospace; font-size:1.2rem; color:rgba(224,224,255,0.6); margin:0.5rem 0;">
-                    AIの勝利です。また挑戦しよう！
-                </div>
-                <div style="font-size:4rem; margin:1rem 0;">
-                    <span style="color:var(--neon-blue);">{st.session_state.player_score}</span>
-                    <span style="color:rgba(255,255,255,0.3); font-size:2rem;"> — </span>
-                    <span style="color:var(--neon-pink);">{st.session_state.ai_score}</span>
-                </div>
-                <div style="font-family:Orbitron,monospace; font-size:0.7rem; letter-spacing:0.2em; 
-                     color:rgba(224,224,255,0.5);">PLAYER vs AI [{st.session_state.difficulty}]</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("")
-
-        # 履歴
-        with st.expander("📋 全問答履歴", expanded=True):
-            for h in st.session_state.history:
-                if "あなた" in h:
-                    st.markdown(f'<div class="history-item hist-player">{h}</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="history-item hist-ai">{h}</div>', unsafe_allow_html=True)
-
-        st.markdown("")
-        b1, b2 = st.columns(2)
-        with b1:
-            if st.button("🔄 もう一度", use_container_width=True, type="primary"):
-                # ゲーム状態だけリセット
-                for key in ["phase", "player_score", "ai_score", "current_q",
-                            "q_start", "ai_answer_at", "answered", "last_result",
-                            "history", "round_num", "answer_input_key", "winner"]:
-                    if key in st.session_state:
-                        del st.session_state[key]
-                init_state()
-                start_game()
-                st.rerun()
-        with b2:
-            if st.button("🏠 メニューへ", use_container_width=True):
-                for key in list(st.session_state.keys()):
-                    del st.session_state[key]
-                init_state()
-                st.rerun()
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("🔄 もう一度バトル！", use_container_width=True):
+            start_battle()
+            st.rerun()
+    with c2:
+        if st.button("🏠 メニューに戻る", use_container_width=True):
+            st.session_state.screen = "menu"
+            st.rerun()
