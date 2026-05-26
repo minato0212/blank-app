@@ -1,4 +1,22 @@
-ｃ"""
+import streamlit as st
+import random
+import time
+import math
+
+# ─────────────────────────────────────────
+# ページ設定
+# ─────────────────────────────────────────
+st.set_page_config(
+    page_title="数学バトル ⚔️",
+    page_icon="🧮",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
+
+# ─────────────────────────────────────────
+# カスタムCSS
+# ─────────────────────────────────────────
+st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Share+Tech+Mono&display=swap');
 
