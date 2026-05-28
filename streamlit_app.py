@@ -134,14 +134,18 @@ hr { border-color: var(--border) !important; }
     background: linear-gradient(135deg, #1a1d35, #1e2245);
     border: 2px solid var(--accent1);
     border-radius: var(--radius);
-    padding: 1.5rem 2rem;
-    font-size: 1.45rem;
+    padding: 1.6rem 2rem;
+    font-size: 1.55rem;
     font-weight: 700;
+    line-height: 1.9;
     text-align: center;
-    color: #fff;
+    color: #ffffff;
     margin: 1rem 0;
-    box-shadow: 0 0 30px rgba(91,127,255,.2);
-    letter-spacing: .03em;
+    box-shadow: 0 0 30px rgba(91,127,255,.25);
+    letter-spacing: .04em;
+    word-break: break-word;
+    white-space: pre-wrap;
+    text-shadow: 0 1px 3px rgba(0,0,0,.5);
 }
 
 /* スコア表示 */
@@ -920,6 +924,49 @@ def generate_problem(selected_topics):
 def normalize(s):
     return s.strip().replace(" ","").replace("　","").lower()
 
+def plain_question(q: str) -> str:
+    """LaTeX記法を読みやすいUnicode/プレーンテキストに変換する"""
+    import re
+    # \( ... \) や $ ... $ を中身だけ取り出す
+    q = re.sub(r'\\\(|\\\)', '', q)
+    q = re.sub(r'\$', '', q)
+    # \dfrac{a}{b} → a/b
+    q = re.sub(r'\\dfrac\{([^}]+)\}\{([^}]+)\}', r'\1/\2', q)
+    q = re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', r'\1/\2', q)
+    # \sqrt{n} → √n
+    q = re.sub(r'\\sqrt\{([^}]+)\}', r'√\1', q)
+    q = re.sub(r'\\sqrt', '√', q)
+    # ^{n} → ⁿ (上付きUnicode)
+    sup_map = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹',
+               '-':'⁻','+':'⁺','n':'ⁿ'}
+    def to_sup(m):
+        return ''.join(sup_map.get(c, c) for c in m.group(1))
+    q = re.sub(r'\^\{([^}]+)\}', to_sup, q)
+    q = re.sub(r'\^(\d)', lambda m: sup_map.get(m.group(1), m.group(1)), q)
+    # _{n} → ₙ (下付きUnicode)
+    sub_map = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'}
+    def to_sub(m):
+        return ''.join(sub_map.get(c, c) for c in m.group(1))
+    q = re.sub(r'_\{([^}]+)\}', to_sub, q)
+    q = re.sub(r'_(\d)', lambda m: sub_map.get(m.group(1), m.group(1)), q)
+    # \log → log, \sin → sin etc.
+    q = re.sub(r'\\(log|sin|cos|tan|gcd|mathrm\{[^}]+\})', lambda m: m.group(1).split('{')[-1].rstrip('}'), q)
+    # \times → ×, \cdot → ·
+    q = q.replace('\\times', '×').replace('\\cdot', '·')
+    # \geq → ≥, \leq → ≤, \neq → ≠
+    q = q.replace('\\geq','≥').replace('\\leq','≤').replace('\\neq','≠')
+    q = q.replace('\\pm','±').replace('\\infty','∞')
+    # ^\circ → °
+    q = re.sub(r'\^\\?circ', '°', q)
+    q = re.sub(r'\^\\circ', '°', q)
+    # 残った \コマンド を除去
+    q = re.sub(r'\\[a-zA-Z;,!]+', ' ', q)
+    # { } を除去
+    q = q.replace('{','').replace('}','')
+    # 連続スペース整理
+    q = re.sub(r'  +', ' ', q).strip()
+    return q
+
 def check_answer(user_ans, correct_ans):
     u = normalize(user_ans)
     c = normalize(correct_ans)
@@ -1034,20 +1081,26 @@ def screen_setup_battle():
     
     st.markdown("### 📐 出題範囲")
     all_topics = list(TOPICS.keys())
-    
-    col1,col2 = st.columns(2)
-    if col1.button("全選択", use_container_width=True):
+
+    # 初期化
+    if "topic_sel" not in st.session_state:
         st.session_state["topic_sel"] = all_topics
-    if col2.button("全解除", use_container_width=True):
+
+    col1,col2 = st.columns(2)
+    if col1.button("✅ 全選択", use_container_width=True, key="b_all"):
+        st.session_state["topic_sel"] = all_topics
+        st.rerun()
+    if col2.button("🗑️ 全解除", use_container_width=True, key="b_clr"):
         st.session_state["topic_sel"] = []
-    
-    default_sel = st.session_state.get("topic_sel", all_topics)
+        st.rerun()
+
     selected = st.multiselect(
         "分野を選んでください",
         all_topics,
-        default=default_sel,
-        key="topic_multisel_battle"
+        default=st.session_state["topic_sel"],
     )
+    # multiselect の変更をstateに同期
+    st.session_state["topic_sel"] = selected
     
     st.markdown("---")
     col1,col2 = st.columns(2)
@@ -1080,20 +1133,26 @@ def screen_setup_practice():
     
     st.markdown("### 📐 出題範囲")
     all_topics = list(TOPICS.keys())
-    
-    col1,col2 = st.columns(2)
-    if col1.button("全選択", use_container_width=True, key="prac_all"):
+
+    # 初期化
+    if "ptopic_sel" not in st.session_state:
         st.session_state["ptopic_sel"] = all_topics
-    if col2.button("全解除", use_container_width=True, key="prac_none"):
+
+    col1,col2 = st.columns(2)
+    if col1.button("✅ 全選択", use_container_width=True, key="prac_all"):
+        st.session_state["ptopic_sel"] = all_topics
+        st.rerun()
+    if col2.button("🗑️ 全解除", use_container_width=True, key="prac_none"):
         st.session_state["ptopic_sel"] = []
-    
-    default_sel = st.session_state.get("ptopic_sel", all_topics)
+        st.rerun()
+
     selected = st.multiselect(
         "分野を選んでください",
         all_topics,
-        default=default_sel,
-        key="topic_multisel_practice"
+        default=st.session_state["ptopic_sel"],
     )
+    # multiselect の変更をstateに同期
+    st.session_state["ptopic_sel"] = selected
     
     st.markdown("---")
     col1,col2 = st.columns(2)
@@ -1167,7 +1226,7 @@ def screen_battle():
         st.progress(pct)
         
         # ── 問題 ──
-        st.markdown(f'<div class="question-box animate-in">{prob["question"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="question-box animate-in">{plain_question(prob["question"])}</div>', unsafe_allow_html=True)
         st.markdown(f'<div style="text-align:center;margin:.3rem 0"><span class="badge badge-blue">📚 {prob["category"]}</span></div>', unsafe_allow_html=True)
         
         user_ans = st.text_input(
@@ -1324,7 +1383,7 @@ def screen_practice():
     """, unsafe_allow_html=True)
     
     if st.session_state.p_phase == "question":
-        st.markdown(f'<div class="question-box animate-in">{prob["question"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="question-box animate-in">{plain_question(prob["question"])}</div>', unsafe_allow_html=True)
         st.markdown(f'<div style="text-align:center;margin:.3rem 0"><span class="badge badge-blue">📚 {prob["category"]}</span></div>', unsafe_allow_html=True)
         
         user_ans = st.text_input(
